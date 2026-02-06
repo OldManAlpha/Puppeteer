@@ -1295,6 +1295,18 @@ function CanClientGetPreciseDistance(alsoEnemies)
     return UnitXPSP3 or (SuperWoW and not alsoEnemies)
 end
 
+-- Returns relative direction angle in degrees if UnitXP SP3 is present; nil otherwise.
+-- Angle is 0 when unit is in front, positive to the left, negative to the right.
+function GetRelativeDirection(unit)
+    if not UnitXPSP3 then
+        return nil
+    end
+    if not UnitIsConnected(unit) or not UnitIsVisible(unit) then
+        return nil
+    end
+    return UnitXP("relativeDirection", "player", unit)
+end
+
 -- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
 IsInSight = function()
     return true

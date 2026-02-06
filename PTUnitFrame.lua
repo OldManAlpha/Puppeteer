@@ -51,6 +51,7 @@ PTUnitFrame.pressed = false
 
 PTUnitFrame.distanceText = nil
 PTUnitFrame.lineOfSightIcon = nil -- map: {"frame", "icon"}
+PTUnitFrame.rangeDirectionIcon = nil -- map: {"frame", "icon"}
 
 PTUnitFrame.inRange = true
 PTUnitFrame.distance = 0
@@ -193,6 +194,10 @@ function PTUnitFrame:GetOutOfRangeThreshold()
     return self:IsEnemy() and threshold.Hostile or threshold.Friendly
 end
 
+function PTUnitFrame:GetRangeDirectionThreshold()
+    return self:GetProfile().RangeDirectionThreshold or 20
+end
+
 function PTUnitFrame:UpdateRange()
     local wasInRange = self.inRange
     self.distance = self:GetCache():GetDistance()
@@ -202,6 +207,7 @@ function PTUnitFrame:UpdateRange()
     end
 
     self:UpdateRangeText()
+    self:UpdateRangeDirectionIndicator()
 end
 
 function PTUnitFrame:UpdateSight()
@@ -215,6 +221,67 @@ function PTUnitFrame:UpdateSight()
             frame:Hide()
         end
     end
+end
+
+local function GetDirectionAlignment(angle)
+    local absAngle = math.abs(angle)
+    if absAngle <= 22.5 then
+        return "CENTER", "TOP"
+    elseif absAngle <= 67.5 then
+        return angle > 0 and "LEFT" or "RIGHT", "TOP"
+    elseif absAngle <= 112.5 then
+        return angle > 0 and "LEFT" or "RIGHT", "CENTER"
+    elseif absAngle <= 157.5 then
+        return angle > 0 and "LEFT" or "RIGHT", "BOTTOM"
+    else
+        return "CENTER", "BOTTOM"
+    end
+end
+
+function PTUnitFrame:UpdateRangeDirectionIndicator()
+    local indicator = self.rangeDirectionIcon
+    if not indicator then
+        return
+    end
+
+    local props = self:GetProfile().RangeDirectionIcon
+    if not props then
+        indicator.frame:Hide()
+        return
+    end
+
+    local frame = indicator.frame
+    local dist = math.ceil(self.distance)
+    if dist < self:GetRangeDirectionThreshold() or dist >= 9999 then
+        frame:Hide()
+        return
+    end
+
+    local angle = util.GetRelativeDirection and util.GetRelativeDirection(self.unit)
+    if angle == nil then
+        frame:Hide()
+        return
+    end
+
+    local alignmentH, alignmentV = GetDirectionAlignment(angle)
+    
+    -- Adjust offsets based on direction to keep dot on frame edge
+    -- Offset values represent distance from edge toward center
+    local xOffset = 0
+    local yOffset = 0
+    if alignmentH == "RIGHT" then
+        xOffset = -props:GetOffsetX()
+    elseif alignmentH == "LEFT" then
+        xOffset = props:GetOffsetX()
+    end
+    if alignmentV == "BOTTOM" then
+        yOffset = props:GetOffsetY()
+    elseif alignmentV == "TOP" then
+        yOffset = -props:GetOffsetY()
+    end
+    
+    self:UpdateDirectionalComponent(frame, props, alignmentH, alignmentV, xOffset, yOffset)
+    frame:Show()
 end
 
 local preciseDistance = util.CanClientGetPreciseDistance()
@@ -1245,6 +1312,21 @@ function PTUnitFrame:Initialize()
     losIcon:SetAlpha(profile.LineOfSightIcon:GetAlpha())
     losFrame:Hide()
 
+    local rangeDirFrame = CreateFrame("Frame", nil, container)
+    rangeDirFrame:SetFrameLevel(container:GetFrameLevel() + 3)
+    local rangeDirIcon = rangeDirFrame:CreateTexture(nil, "OVERLAY")
+    self.rangeDirectionIcon = {frame = rangeDirFrame, icon = rangeDirIcon}
+    rangeDirIcon:SetTexture(1, 0, 0, 1)
+    if profile.RangeDirectionIcon then
+        rangeDirIcon:SetAlpha(profile.RangeDirectionIcon:GetAlpha())
+    end
+    rangeDirFrame:Hide()
+    
+    -- Set up frequent updates for direction indicator (updates on player rotation)
+    rangeDirFrame:SetScript("OnUpdate", function()
+        self:UpdateRangeDirectionIndicator()
+    end)
+
     -- Role Icon
 
     local roleFrame = CreateFrame("Frame", nil, container)
@@ -1486,6 +1568,14 @@ function PTUnitFrame:SizeElements()
     local losIcon = self.lineOfSightIcon.icon
     losIcon:SetAllPoints(losFrame)
 
+    if profile.RangeDirectionIcon and self.rangeDirectionIcon then
+        local rangeDirFrame = self.rangeDirectionIcon.frame
+        self:UpdateComponent(rangeDirFrame, profile.RangeDirectionIcon)
+
+        local rangeDirIcon = self.rangeDirectionIcon.icon
+        rangeDirIcon:SetAllPoints(rangeDirFrame)
+    end
+
     local roleFrame = self.roleIcon.frame
     self:UpdateComponent(roleFrame, profile.RoleIcon)
 
@@ -1572,6 +1662,21 @@ function PTUnitFrame:UpdateComponent(component, props, xOffset, yOffset)
     end
     local alignment = alignmentAnchorMap[props.AlignmentH][props.AlignmentV]
     component:SetPoint(alignment, anchor, alignment, props:GetOffsetX() + xOffset, props:GetOffsetY() + yOffset)
+end
+
+function PTUnitFrame:UpdateDirectionalComponent(component, props, alignmentH, alignmentV, xOffset, yOffset)
+    xOffset = xOffset or 0
+    yOffset = yOffset or 0
+
+    local anchor = props:GetAnchorComponent(self)
+    component:ClearAllPoints()
+    component:SetWidth(props:GetWidth(self))
+    component:SetHeight(props:GetHeight(self))
+
+    local horiz = alignmentH or props.AlignmentH
+    local vert = alignmentV or props.AlignmentV
+    local alignment = alignmentAnchorMap[horiz][vert]
+    component:SetPoint(alignment, anchor, alignment, xOffset, yOffset)
 end
 
 function PTUnitFrame:GetCache()

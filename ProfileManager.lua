@@ -190,6 +190,20 @@ function InitializeDefaultProfiles()
             ["OffsetY"] = -7,
             ["AlignmentV"] = "CENTER",
         },
+        ["RangeDirectionThreshold"] = 20,
+        ["RangeDirectionIcon"] = {
+            ["PaddingH"] = 0,
+            ["Opacity"] = 100,
+            ["OffsetX"] = 0,
+            ["Anchor"] = "Container",
+            ["PaddingV"] = 0,
+            ["AlignmentH"] = "LEFT",
+            ["Width"] = 6,
+            ["ObjectType"] = "Sized",
+            ["Height"] = 6,
+            ["OffsetY"] = 0,
+            ["AlignmentV"] = "CENTER",
+        },
         ["NameDisplay"] = "Name", -- Unimplemented
         ["TargetOutline"] = {
             ["PaddingH"] = 4,
@@ -460,6 +474,95 @@ function InitializeDefaultProfiles()
     CreateProfile("Very Small (Horizontal)", "Very Small", {
         ["Orientation"] = "Horizontal"
     })
+
+    do 
+		local profile = CreateProfile("Less Small (Horizontal)", "Very Small")
+		profile.Orientation = "Horizontal"
+		profile.PowerBarHeight = 8
+		profile.VerticalSpacing = 3
+		profile.HorizontalSpacing = 3
+		profile.Width = 65
+		profile.HealthBarHeight = 25
+		profile.HealthBarColor = "Class"
+		profile.HealthBarStyle = "Blizzard Smooth"
+		profile.PowerBarStyle = "Blizzard Smooth"
+		profile.ShowDebuffColorsOn = "Hidden"
+		profile.AuraTracker.Anchor = "Power Bar"
+		profile.AuraTracker.OffsetY = 3
+		
+		profile.RoleIcon.Opacity = 0
+		
+		profile.RangeDirectionIcon.Anchor = "Health Bar"
+		profile.RangeDirectionIcon.AlignmentH = "LEFT"
+		profile.RangeDirectionIcon.AlignmentV = "CENTER"
+		profile.RangeDirectionIcon.Opacity = 100
+		profile.RangeDirectionIcon.OffsetX = 3
+		profile.RangeDirectionIcon.OffsetY = 3
+		profile.RangeDirectionIcon.Width = 6
+		profile.RangeDirectionIcon.Height = 6
+		
+		profile.NameText.FontSize = 9
+        profile.NameText.AlignmentH = "LEFT"
+        profile.NameText.AlignmentV = "TOP"
+        profile.NameText.PaddingV = 1
+        profile.NameText.OffsetX = 6
+		profile.NameText.OffsetY = 2
+        profile.NameText.MaxWidth = 54
+		profile.NameText.Color = "Default"
+		
+		local healthTexts = profile.HealthTexts
+        healthTexts.Normal.FontSize = 9
+        healthTexts.Normal.AlignmentH = "CENTER"
+        healthTexts.Normal.AlignmentV = "CENTER"
+        healthTexts.Normal.OffsetY = -2
+        healthTexts.WithMissing.FontSize = 9
+        healthTexts.WithMissing.AlignmentH = "LEFT"
+        healthTexts.WithMissing.AlignmentV = "CENTER"
+        healthTexts.WithMissing.OffsetY = -2
+        healthTexts.Missing.FontSize = 9
+        healthTexts.Missing.AlignmentH = "RIGHT"
+        healthTexts.Missing.AlignmentV = "CENTER"
+        healthTexts.Missing.OffsetY = -2
+	end
+	
+	do 
+		local profile = CreateProfile("Less Small (Vertical)", "Less Small (Horizontal)")
+		profile.Orientation = "Vertical"
+		profile.MaxUnitsInAxis = 4
+
+		profile.PowerBarHeight = 8
+		profile.VerticalSpacing = 3
+		profile.HorizontalSpacing = 3
+		profile.Width = 65
+		profile.HealthBarHeight = 25
+		profile.HealthBarColor = "Class"
+		profile.HealthBarStyle = "Blizzard Smooth"
+		profile.PowerBarStyle = "Blizzard Smooth"
+		profile.ShowDebuffColorsOn = "Hidden"
+		
+		profile.NameText.FontSize = 9
+        profile.NameText.AlignmentH = "LEFT"
+        profile.NameText.AlignmentV = "TOP"
+        profile.NameText.PaddingV = 1
+        profile.NameText.OffsetX = 6
+		profile.NameText.OffsetY = 2
+        profile.NameText.MaxWidth = 54
+		profile.NameText.Color = "Default"
+		
+		local healthTexts = profile.HealthTexts
+        healthTexts.Normal.FontSize = 9
+        healthTexts.Normal.AlignmentH = "CENTER"
+        healthTexts.Normal.AlignmentV = "CENTER"
+        healthTexts.Normal.OffsetY = -2
+        healthTexts.WithMissing.FontSize = 9
+        healthTexts.WithMissing.AlignmentH = "LEFT"
+        healthTexts.WithMissing.AlignmentV = "CENTER"
+        healthTexts.WithMissing.OffsetY = -2
+        healthTexts.Missing.FontSize = 9
+        healthTexts.Missing.AlignmentH = "RIGHT"
+        healthTexts.Missing.AlignmentV = "CENTER"
+        healthTexts.Missing.OffsetY = -2
+	end
 
     CreateProfile("Long", "Default", {
         ["PVPIcon"] = {
