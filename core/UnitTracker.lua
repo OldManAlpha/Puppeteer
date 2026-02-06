@@ -124,7 +124,7 @@ function EvaluateTracking(unit, update)
         unit = PTGuidRoster.ResolveUnitGuid(unit)
     end
     -- Only closely track units that are close to the range threshold
-    if isTarget or (dist < RANGE_MAX_DIST and dist > RANGE_MIN_DIST) then
+    if isTarget or (dist <= RANGE_MAX_DIST and dist >= RANGE_MIN_DIST) then
         if not update or not util.ArrayContains(distanceTrackedUnits, unit) then
             table.insert(distanceTrackedUnits, unit)
         end

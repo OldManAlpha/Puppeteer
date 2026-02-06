@@ -150,8 +150,8 @@ function PTUnit:UpdatePVP()
     if not self.Unit then
         return
     end
-    local shouldDisplay = UnitIsPVP(self.Unit) and (not IsInInstance() or not UnitIsVisible(self.Unit))
-    if self.DisplayPVP ~= shouldDisplay then
+    local shouldDisplay = UnitIsPVP(self.Unit) and (not util.IsReallyInInstance() or not UnitIsVisible(self.Unit))
+    if self.DisplayPVP ~= (shouldDisplay == 1 or shouldDisplay == true) then
         self.DisplayPVP = shouldDisplay
         return true
     end

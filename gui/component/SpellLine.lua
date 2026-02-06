@@ -116,6 +116,7 @@ function PTSpellLine:New()
             PTSettingsGui.AddOverlayFrame(editor)
             editor:SetDisposeHandler(function()
                 PTSettingsGui.PopOverlayFrame()
+                PTSettingsGui.UpdateUnsavedChanges()
                 obj:Update()
             end)
         end)
@@ -209,6 +210,7 @@ function PTSpellLine:SetBindType(bindType)
     self:GetTypeDropdown():SetText(bindType)
     util.ClearTable(self.Binding)
     self.Binding.Type = bindType
+    PTSettingsGui.UpdateUnsavedChanges()
     self:Update()
     return self
 end
@@ -246,6 +248,7 @@ function PTSpellLine:ApplySearchableEditbox(bindType, searchFunc, searchAtLength
             return
         end
         binding.Data = self:GetContentEditbox():GetText()
+        PTSettingsGui.UpdateUnsavedChanges()
         if not binding.Type then
             binding.Type = bindType
         end
@@ -263,6 +266,7 @@ function PTSpellLine:ApplySearchableEditbox(bindType, searchFunc, searchAtLength
                 notCheckable = true,
                 func = function(option)
                     binding.Data = option.text
+                    PTSettingsGui.UpdateUnsavedChanges()
                     self:Update()
                 end
             }
@@ -287,6 +291,7 @@ function PTSpellLine:ApplySearchableEditbox(bindType, searchFunc, searchAtLength
         local searchResults = searchFunc(binding.Data)
         if table.getn(searchResults) > 0 then
             editbox:SetText(searchResults[1])
+            PTSettingsGui.UpdateUnsavedChanges()
         end
     end)
 end
@@ -297,7 +302,7 @@ function PTSpellLine:Update()
         self:SetEnabledContent("editbox")
         self:GetTypeDropdown():SetText("Spell")
         self:GetContentEditbox():SetText(binding.Data or "")
-        self:GetContentEditbox():ApplyTooltip("Enter the name of a spell", "To downrank, suffix '(Rank #)'", "For example, 'Heal(Rank 2)'")
+        self:GetContentEditbox():ApplyTooltip("Enter the name of a spell", "To downrank, suffix '("..RANK.." #)'", "For example, 'Heal("..RANK.." 2)'")
         self:ApplySearchableEditbox("SPELL", SearchSpells, 2)
     elseif binding.Type == "ACTION" then
         self:SetEnabledContent("dropdown")
@@ -317,6 +322,7 @@ function PTSpellLine:Update()
             func = function(self, gui)
                 binding.Data = self.text
                 gui:SetText(self.text)
+                PTSettingsGui.UpdateUnsavedChanges()
             end
         })
     elseif binding.Type == "MACRO" then
@@ -375,6 +381,7 @@ function PTSpellLine:Update()
                 :SetCallback(function(save, scriptData, nameData)
                     if save then
                         binding.Data = scriptData
+                        PTSettingsGui.UpdateUnsavedChanges()
                     end
                     editor:Dispose()
 
@@ -407,6 +414,7 @@ function PTSpellLine:Update()
             PTSettingsGui.AddOverlayFrame(editor)
             editor:SetDisposeHandler(function()
                 PTSettingsGui.PopOverlayFrame()
+                PTSettingsGui.UpdateUnsavedChanges()
                 self:Update()
             end)
         end, true)

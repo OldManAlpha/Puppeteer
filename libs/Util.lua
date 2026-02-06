@@ -64,6 +64,19 @@ PowerTypeMap = {
     [3] = "energy"
 }
 
+ResurrectionSpells = {
+    ["PRIEST"] = "Resurrection",
+    ["PALADIN"] = "Redemption",
+    ["SHAMAN"] = "Ancestral Spirit",
+    ["DRUID"] = "Rebirth"
+}
+ResurrectionSpellsSet = {
+    ["Resurrection"] = "PRIEST",
+    ["Redemption"] = "PALADIN",
+    ["Ancestral Spirit"] = "SHAMAN",
+    ["Rebirth"] = "DRUID"
+}
+
 -- The default color Blizzard uses for text
 DefaultTextColor = {1, 0.82, 0}
 
@@ -154,6 +167,14 @@ function IndexOf(table, value)
     return -1
 end
 
+function KeyOf(table, value)
+    for k, v in pairs(table) do
+        if v == value then
+            return k
+        end
+    end
+end
+
 function ArrayContains(table, value)
     for _, v in ipairs(table) do
         if v == value then
@@ -185,7 +206,36 @@ function CloneTable(table, deep)
     return clone
 end
 
+function ApplyTableDiffs(t, overrides)
+    for k, v in pairs(overrides) do
+        if t[k] ~= nil then
+            if type(v) == "table" then
+                if type(t[k]) == "table" then
+                    ApplyTableDiffs(t[k], v)
+                else
+                    t[k] = CloneTable(v, true)
+                end
+            else
+                t[k] = v
+            end
+        else
+            t[k] = type(v) == "table" and CloneTable(v, true) or v
+        end
+    end
+end
+
 local compost = AceLibrary("Compost-2.0")
+
+-- Recursively reclaims all tables this table contains
+function CompostReclaim(t)
+    for k, v in pairs(t) do
+        if type(v) == "table" then
+            CompostReclaim(v)
+        end
+    end
+    compost:Reclaim(t)
+end
+
 function CloneTableCompost(t, deep)
     local clone = compost:GetTable()
     local n = 0
@@ -249,6 +299,18 @@ function TableEquals(t1, t2)
         end
     end
     return true
+end
+
+function TraverseTable(v, k1, k2, k3, k4, k5)
+    local keys = compost:Acquire(k1, k2, k3, k4, k5)
+    for _, k in ipairs(keys) do
+        if type(v) ~= "table" then
+            return nil, k
+        end
+        v = v[k]
+    end
+    compost:Reclaim(keys)
+    return v
 end
 
 -- Courtesy of ChatGPT
@@ -473,10 +535,10 @@ ScanningTooltip:AddFontStrings(
     ScanningTooltip:CreateFontString( "$parentTextLeft1", nil, "GameTooltipText" ),
     ScanningTooltip:CreateFontString( "$parentTextRight1", nil, "GameTooltipText" ) );
 
--- Thanks ChatGPT
+local spellRankString = RANK.." "
 function ExtractSpellRank(spellname)
     -- Find the starting position of "Rank "
-    local start_pos = string.find(spellname, "Rank ")
+    local start_pos = string.find(spellname, spellRankString)
 
     -- Check if "Rank " was found
     if start_pos then
@@ -497,42 +559,16 @@ function ExtractSpellRank(spellname)
     return nil
 end
 
--- Thanks again ChatGPT
-local tooltipResources = {["Mana"] = "mana", ["Rage"] = "rage", ["Energy"] = "energy"}
+local resourceCostPatterns = {[MANA_COST] = "mana", [RAGE_COST] = "rage", [ENERGY_COST] = "energy", [FOCUS_COST] = "focus"}
 function ExtractResourceCost(costText)
-
-    -- First extract resource type
-    local resource
-    for tooltipName, lowerName in pairs(tooltipResources) do
-        if string.find(costText, tooltipName) then
-            resource = lowerName
-            break
+    for costPattern, resourceName in pairs(resourceCostPatterns) do
+        local cost = cmatch(costText, costPattern)
+        if cost then
+            return tonumber(cost), resourceName
         end
     end
-
-    -- No resource found, this spell is probably free
-    if not resource then
-        return 0
-    end
-
-    -- Find the position where non-digit characters start
-    local num_end = string.find(costText, "%D")
-
-    -- If a non-digit character is found, extract the number
-    if num_end then
-        -- Extract the number substring from the start to the position before the non-digit character
-        local number_str = string.sub(costText, 1, num_end - 1)
-        -- Convert the substring to a number
-        local number = tonumber(number_str)
-        -- Print the result
-        return number or 0, resource
-    else
-        -- If no non-digit character is found, the entire string is a number
-        local number = tonumber(costText)
-        return number or 0, resource
-    end
+    return 0
 end
-
 
 function GetSpellID(spellname)
     local id = 1
@@ -652,6 +688,56 @@ if SuperWoW or TurtleWow then
     end
 else
     GetAuraInfo = ScanAuraInfo
+end
+
+function GetActionSlotName(slot)
+    _G["PTScanningTooltipTextLeft1"]:SetText("")
+    ScanningTooltip:SetAction(slot)
+    return _G["PTScanningTooltipTextLeft1"]:GetText() or ""
+end
+
+local actionCache = {}
+function FindAction(name)
+    if actionCache[name] then
+        local data = actionCache[name]
+        if GetActionTexture(data.slot) == data.texture then
+            return data.slot
+        end
+        actionCache[name] = nil
+    end
+    for i = 1, 120 do
+        if GetActionTexture(i) then
+            local slotName = GetActionSlotName(i)
+            if slotName == name then
+                actionCache[name] = {
+                    slot = i,
+                    texture = GetActionTexture(i)
+                }
+                return i
+            end
+        end
+    end
+end
+
+function IsCurrentActionByName(name)
+    local slot = FindAction(name)
+    if slot then
+        return IsCurrentAction(slot)
+    end
+end
+
+function IsAutoRepeatActionByName(name)
+    local slot = FindAction(name)
+    if slot then
+        return IsAutoRepeatAction(slot)
+    end
+end
+
+-- Casts an action if it's not already being used. Very useful for auto attack abilities. They must be somewhere on your bars.
+function CastActionByName(name, target)
+    if not (IsAutoRepeatActionByName(name) or IsCurrentActionByName(name)) then
+        CastSpellByName(name, target)
+    end
 end
 
 -- Returns an array of the units in the party number or the unit's raid group
@@ -1113,6 +1199,11 @@ function GetPowerColor(unit)
     return PowerColors[GetPowerType(unit)]
 end
 
+-- You never really know these days
+function IsReallyInInstance()
+    return IsInInstance() and not InstanceWorldZones[GetRealZoneText()]
+end
+
 -- Returns distance if UnitXP SP3 or SuperWoW is present;
 -- 0 if unit is offline, or unit is enemy and SuperWoW is the distance provider;
 -- 9999 if unit is not visible or UnitXP SP3 is not present.
@@ -1227,7 +1318,7 @@ function CanClientSightCheck()
 end
 
 function CanClientGetAuraIDs()
-    return SuperWoW or TurtleWow
+    return SuperWoW-- or TurtleWow -- Turtle ID fetching is not reliable
 end
 
 function IsSuperWowPresent()
@@ -1249,3 +1340,9 @@ end
 
 AllUnitsSet = ToSet(AllUnits)
 FocusUnitsSet = ToSet(FocusUnits)
+RunLater(function()
+    PTLocale.Values(ResurrectionSpells)
+    PTLocale.Keys(ResurrectionSpellsSet)
+end)
+
+InstanceWorldZones = ToSet({"Winter Veil Vale"}) -- Why is this an instance??

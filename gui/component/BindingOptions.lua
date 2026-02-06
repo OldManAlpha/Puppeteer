@@ -30,6 +30,7 @@ function PTBindingOptions:New()
     end
     local func = function(self)
         obj.Binding.Tooltip.Type = self.type
+        obj.Binding.Tooltip.Data = nil
         obj:UpdateTooltipType()
     end
     tooltipTypeDropdown:SetOptions({

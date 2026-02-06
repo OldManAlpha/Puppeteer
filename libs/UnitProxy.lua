@@ -415,7 +415,6 @@ function CreateUnitProxies()
     DoubleUnitProxy("UnitCanAttack", _G.UnitCanAttack, false)
     DoubleUnitProxy("CheckInteractDistance", _G.CheckInteractDistance, false)
     CustomProxy("CastSpellByName", function()
-        local CastSpellByName = _G.CastSpellByName
         return function(spell, unit)
             if AllCustomUnitsSet[unit] then
                 unit = CustomUnitGUIDMap[unit]
@@ -423,7 +422,7 @@ function CreateUnitProxies()
                     return
                 end
             end
-            return CastSpellByName(spell, unit)
+            return _G.CastSpellByName(spell, unit)
         end
     end)
     -- UnitXP SP3 compatibility
@@ -451,6 +450,12 @@ function CreateUnitProxies()
                 if not a5 then return 0 end
             end
             return UnitXP(a1, a2, a3, a4, a5)
+        end
+    end)
+    CustomProxy("UnitGUID", function()
+        return function(unit)
+            local _, guid = UnitExists(unit)
+            return guid
         end
     end)
 

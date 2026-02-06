@@ -4,6 +4,7 @@ PTUnitFrame.__index = PTUnitFrame
 local _G = getfenv(0)
 local PT = Puppeteer
 local util = PTUtil
+local colorize = util.Colorize
 local compost = AceLibrary("Compost-2.0")
 
 PTUnitFrame.owningGroup = nil
@@ -29,8 +30,10 @@ PTUnitFrame.button = nil
 PTUnitFrame.auraPanel = nil
 PTUnitFrame.scrollingDamageFrame = nil -- Unimplemented
 PTUnitFrame.scrollingHealFrame = nil -- Unimplemented
-PTUnitFrame.auraIconPool = {} -- map: {"frame", "icon", "stackText"}
-PTUnitFrame.auraIcons = {} -- map: {"frame", "icon", "stackText"}
+PTUnitFrame.auraIconPool = {} -- array: {"frame", "icon", "stackText"}
+PTUnitFrame.auraButtonPool = {}
+PTUnitFrame.auraButtons = {}
+PTUnitFrame.auraIcons = {} -- array: {"frame", "icon", "stackText", "button"}
 
 PTUnitFrame.targetOutline = nil
 
@@ -56,8 +59,8 @@ PTUnitFrame.inSight = true
 PTUnitFrame.fakeStats = {} -- Used for displaying a fake party/raid
 
 function PTUnitFrame:New(unit, isCustomUnit)
-    local obj = setmetatable({unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, 
-        auraIcons = {}, fakeStats = PTUnitFrame.GenerateFakeStats()}, self)
+    local obj = setmetatable({unit = unit, isCustomUnit = isCustomUnit, auraIconPool = {}, auraButtonPool = {}, 
+        auraButtons = {}, auraIcons = {}, fakeStats = PTUnitFrame.GenerateFakeStats()}, self)
     return obj
 end
 
@@ -163,11 +166,8 @@ end
 function PTUnitFrame:RegisterClicks()
     local buttons = PTOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
     self.button:RegisterForClicks(unpack(buttons))
-    for _, aura in ipairs(self.auraIcons) do
-        aura.frame:RegisterForClicks(unpack(buttons))
-    end
-    for _, aura in ipairs(self.auraIconPool) do
-        aura.frame:RegisterForClicks(unpack(buttons))
+    for _, button in ipairs(self.auraButtons) do
+        button:RegisterForClicks(unpack(buttons))
     end
 end
 
@@ -233,12 +233,12 @@ function PTUnitFrame:UpdateRangeText()
         end
 
         if preciseDistance then
-            text = text..util.Colorize(dist.." yd", r, g, b)
+            text = text..colorize(dist.." yd", r, g, b)
         else
             if dist < 28 then
-                text = text..util.Colorize("<"..dist.." yd", r, g, b)
+                text = text..colorize("<"..dist.." yd", r, g, b)
             else
-                text = text..util.Colorize("28+ yd", r, g, b)
+                text = text..colorize("28+ yd", r, g, b)
             end
         end
     end
@@ -324,7 +324,7 @@ function PTUnitFrame:UpdateRaidMark()
 end
 
 function PTUnitFrame:UpdatePVP()
-    if UnitIsPVP(self.unit) and (not IsInInstance() or not UnitIsVisible(self.unit)) then
+    if UnitIsPVP(self.unit) and (not util.IsReallyInInstance() or not UnitIsVisible(self.unit)) then
         local faction = UnitFactionGroup(self.unit)
         if faction == "Alliance" then
             self.pvpIcon.icon:SetTexture("Interface\\TargetingFrame\\UI-PVP-Alliance")
@@ -438,9 +438,9 @@ end
 function PTUnitFrame:ColorizeText(inputText, color)
     if color == "Class" then
         local r, g, b = util.GetClassColor(self:GetClass())
-        return util.Colorize(inputText, r, g, b)
+        return colorize(inputText, r, g, b)
     elseif type(color) == "table" then
-        return util.Colorize(inputText, color)
+        return colorize(inputText, color)
     end
     return inputText
 end
@@ -449,7 +449,7 @@ function PTUnitFrame:UpdateHealth()
     local fake = self:IsFake()
     if not UnitExists(self.unit) and not fake then
         if self.isCustomUnit or self.unit == "target" then
-            self.healthText:SetText(util.Colorize(self.unit ~= "target" and "Too Far" or "", 0.7, 0.7, 0.7))
+            self.healthText:SetText(colorize(self.unit ~= "target" and "Too Far" or "", 0.7, 0.7, 0.7))
             self.missingHealthText:SetText("")
             self:SetHealthBarValue(0)
             self.powerBar:SetValue(0)
@@ -475,7 +475,7 @@ function PTUnitFrame:UpdateHealth()
 
     if not UnitIsConnected(unit) and (not fake or not fakeOnline) then
         self.nameText:SetText(self:ColorizeText(unitName, profile.NameText.Color))
-        self.healthText:SetText(util.Colorize("Offline", 0.7, 0.7, 0.7))
+        self.healthText:SetText(colorize("Offline", 0.7, 0.7, 0.7))
         self.missingHealthText:SetText("")
         self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
@@ -494,20 +494,20 @@ function PTUnitFrame:UpdateHealth()
             r, g, b = self:GetDebuffColor()
         end
         if r then
-            nameText = util.Colorize(unitName, r, g, b)
+            nameText = colorize(unitName, r, g, b)
         else
             nameText = self:ColorizeText(unitName, profile.NameText.Color)
         end
     else -- Unit is not a player
         if enemy then
-            nameText = util.Colorize(unitName, 1, 0.3, 0.3)
+            nameText = colorize(unitName, 1, 0.3, 0.3)
         else -- Unit is not an enemy
             local r, g, b
             if profile.ShowDebuffColorsOn == "Name" then
                 r, g, b = self:GetDebuffColor()
             end
             if r then
-                nameText = util.Colorize(unitName, r, g, b)
+                nameText = colorize(unitName, r, g, b)
             else
                 nameText = unitName
             end
@@ -524,12 +524,12 @@ function PTUnitFrame:UpdateHealth()
         local text
         if cache:IsBeingResurrected() then
             if cache:GetResurrectionCasts() > 1 then
-                text = util.Colorize("DEAD", 0.8, 1, 0.8)
+                text = colorize("DEAD", 0.8, 1, 0.8)
             else
-                text = util.Colorize("DEAD", 0.3, 1, 0.3)
+                text = colorize("DEAD", 0.3, 1, 0.3)
             end
         else
-            text = util.Colorize("DEAD", 1, 0.3, 0.3)
+            text = colorize("DEAD", 1, 0.3, 0.3)
         end
 
         -- Check for Feign Death so the healer doesn't get alarmed
@@ -549,7 +549,7 @@ function PTUnitFrame:UpdateHealth()
             self.lastHealthPercent = 0
         end
     elseif UnitIsGhost(unit) then
-        healthText:SetText(util.Colorize("Ghost", 1, 0.3, 0.3))
+        healthText:SetText(colorize("Ghost", 1, 0.3, 0.3))
         missingHealthText:SetText("")
         self:SetHealthBarValue(0)
         self.powerBar:SetValue(0)
@@ -567,11 +567,11 @@ function PTUnitFrame:UpdateHealth()
         if profile.ShowDebuffColorsOn == "Health" then
             local r, g, b = self:GetDebuffColor()
             if r then
-                text = util.Colorize(text, r, g, b)
+                text = colorize(text, r, g, b)
             end
         end
         if self.hovered then
-            text = util.Colorize(text, 1, 1, 1)
+            text = colorize(text, 1, 1, 1)
         end
 
         local missingHealth = math.floor(maxHealth - currentHealth)
@@ -605,7 +605,7 @@ function PTUnitFrame:UpdateHealth()
         self.lastHealthPercent = healthPercent
 
         if self:GetCache():HasBuffIDOrName(27827, "Spirit of Redemption") then
-            healthText:SetText(util.Colorize("Spirit", 1, 0.3, 0.3))
+            healthText:SetText(colorize("Spirit", 1, 0.3, 0.3))
         end
     end
 
@@ -766,6 +766,8 @@ function PTUnitFrame:UpdatePower()
     self.powerText:SetText(text)
 end
 
+AuraTooltip = CreateFrame("GameTooltip", "PTAuraTooltip", UIParent, "GameTooltipTemplate")
+
 local AURA_DURATION_TEXT_FLASH_THRESHOLD = 5
 local AURA_DURATION_TEXT_LOW_THRESHOLD = 30
 -- A map of all seconds below the flash threshold to an array of colors to interpolate
@@ -788,20 +790,8 @@ if util.IsSuperWowPresent() then
     end
 end
 function PTUnitFrame:AllocateAura()
-    local frame = CreateFrame("Button", nil, self.auraPanel, "UIPanelButtonTemplate")
+    local frame = CreateFrame("Frame", nil, self.auraPanel)
     frame.unitFrame = self
-    frame:SetNormalTexture(nil)
-    frame:SetHighlightTexture(nil)
-    frame:SetPushedTexture(nil)
-    local buttons = PTOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()
-    frame:RegisterForClicks(unpack(buttons))
-    frame:EnableMouse(true)
-
-    frame:SetScript("OnEnter", PTUnitFrame.Aura_OnEnter)
-    frame:SetScript("OnLeave", PTUnitFrame.Aura_OnLeave)
-    frame:SetScript("OnClick", PTUnitFrame.Aura_OnClick)
-    frame:SetScript("OnMouseUp", PTUnitFrame.Aura_OnMouseUp)
-    frame:SetScript("OnMouseDown", PTUnitFrame.Aura_OnMouseDown)
     
     local icon = frame:CreateTexture(nil, "ARTWORK")
     local border = frame:CreateTexture(nil, "OVERLAY")
@@ -889,8 +879,77 @@ function PTUnitFrame:GetUnusedAura()
         aura = self:AllocateAura()
     end
     aura.frame:SetAlpha(aura.frame:GetParent():GetAlpha())
+    aura.button = self:GetUnusedAuraButton()
+    aura.button.AuraOwner = aura
+    aura.button:Show()
     table.insert(self.auraIcons, aura)
     return aura
+end
+
+function PTUnitFrame:GetUnusedAuraButton()
+    local button
+    if table.getn(self.auraButtonPool) > 0 then
+        button = table.remove(self.auraButtonPool, table.getn(self.auraButtonPool))
+    else
+        button = CreateFrame("Button", nil, self.button)
+        button:RegisterForClicks(unpack(PTOptions.CastWhen == "Mouse Up" and util.GetUpButtons() or util.GetDownButtons()))
+        button.unitFrame = self
+        button:SetScript("OnClick", PTUnitFrame.AuraButton_OnClick)
+        button:SetScript("OnMouseDown", PTUnitFrame.AuraButton_OnMouseDown)
+        button:SetScript("OnMouseUp", PTUnitFrame.AuraButton_OnMouseUp)
+        button:SetScript("OnEnter", PTUnitFrame.AuraButton_OnEnter)
+        button:SetScript("OnLeave", PTUnitFrame.AuraButton_OnLeave)
+        table.insert(self.auraButtons, button)
+    end
+    return button
+end
+
+function PTUnitFrame.AuraButton_OnClick()
+    local ufButton = this.unitFrame.button
+    if MouseIsOver(ufButton) then
+        ufButton:GetScript("OnClick")()
+    end
+end
+
+function PTUnitFrame.AuraButton_OnMouseDown()
+    local ufButton = this.unitFrame.button
+    if MouseIsOver(ufButton) then
+        this:ClearAllPoints()
+        this:SetAllPoints(ufButton)
+        this.IsHeld = true
+        ufButton:GetScript("OnMouseDown")()
+    end
+end
+
+function PTUnitFrame.AuraButton_OnMouseUp()
+    this:ClearAllPoints()
+    this.IsHeld = nil
+    if this.AuraOwner then
+        this:SetAllPoints(this.AuraOwner.frame)
+    else
+        local this = this
+        PTUtil.RunLater(function()
+            this:Hide()
+            
+            table.insert(this.unitFrame.auraButtonPool, this)
+        end)
+    end
+    this.unitFrame.button:GetScript("OnMouseUp")()
+end
+
+function PTUnitFrame.AuraButton_OnEnter()
+    local ufButton = this.unitFrame.button
+    if this.AuraOwner then
+        this.unitFrame:ApplyAuraTooltip(this.AuraOwner.frame)
+    end
+    if MouseIsOver(ufButton) then
+        ufButton:GetScript("OnEnter")()
+    end
+end
+
+function PTUnitFrame.AuraButton_OnLeave()
+    AuraTooltip:Hide()
+    this.unitFrame.button:GetScript("OnLeave")()
 end
 
 function PTUnitFrame:ReleaseAuras()
@@ -909,6 +968,15 @@ function PTUnitFrame:ReleaseAuras()
         local stackText = aura.stackText
         stackText:ClearAllPoints()
         stackText:SetText("")
+
+        local button = aura.button
+        aura.button = nil
+        button.AuraOwner = nil
+        if not button.IsHeld then -- Don't release button if the user is currently holding it
+            button:ClearAllPoints()
+            button:Hide()
+            table.insert(self.auraButtonPool, button)
+        end
 
         if aura.durationEnabled then
             aura.durationText:SetSeconds(nil)
@@ -1010,74 +1078,60 @@ function PTUnitFrame:UpdateAuras()
     compost:Reclaim(buffs)
     compost:Reclaim(debuffs)
     compost:Reclaim(typedDebuffs)
-
-    -- Prevent lingering tooltips when the icon is removed or is changed to a different aura
-    if not PT.GameTooltip.OwningFrame or not PT.GameTooltip.OwningFrame:IsShown() or 
-            PT.GameTooltip.IconTexture ~= PT.GameTooltip.OwningIcon:GetTexture() then
-        PT.GameTooltip:Hide()
-    end
 end
 
+function PTUnitFrame:ApplyAuraTooltip(auraFrame)
+    local index = auraFrame.auraIndex
+    local type = auraFrame.auraType
 
-function PTUnitFrame.Aura_OnEnter()
-    local self = this.unitFrame
-    local aura = this.aura
-    local index = this.auraIndex
-    local type = this.auraType
-
-    local tooltip = PT.GameTooltip
+    local tooltip = AuraTooltip
     local cache = self:GetCache()
-    tooltip:SetOwner(this, "ANCHOR_BOTTOMLEFT")
-    tooltip.OwningFrame = this
-    tooltip.OwningIcon = aura.icon
+    tooltip:SetOwner(auraFrame, "ANCHOR_BOTTOMLEFT")
     local unit = self:GetResolvedUnit()
-    if type == "Buff" then
-        tooltip.IconTexture = cache.Buffs[index].texture
-        tooltip:SetUnitBuff(unit, index)
-    else
-        tooltip.IconTexture = cache.Debuffs[index].texture
-        tooltip:SetUnitDebuff(unit, index)
-    end
-    local auraTime = cache.AuraTimes[(type == "Buff" and cache.Buffs[index] or cache.Debuffs[index]).name]
-    if auraTime then
-        local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
-        if seconds < 60 then
-            tooltip:AddLine(seconds.." second"..(seconds ~= 1 and "s" or "").." remaining")
+    local auraData = (type == "Buff" and cache.Buffs or cache.Debuffs)[index]
+    if auraData then
+        if type == "Buff" then
+            tooltip:SetUnitBuff(unit, index)
         else
-            tooltip:AddLine(math.ceil(seconds / 60).." minutes remaining")
+            tooltip:SetUnitDebuff(unit, index)
         end
-    end
-    tooltip:Show()
-
-    if MouseIsOver(self.button) then
-        self.button:GetScript("OnEnter")()
-    end
-end
-
-function PTUnitFrame.Aura_OnLeave()
-    PT.GameTooltip:Hide()
-    PT.GameTooltip.OwningFrame = nil
-    PT.GameTooltip.OwningIcon = nil
-    PT.GameTooltip.IconTexture = nil
-    -- Don't check mouse position for leaving, because it could cause the tooltip to stay if the icon is on the edge
-    this.unitFrame.button:GetScript("OnLeave")()
-end
-
-do
-    local wrapButtonScript = function(scriptName)
-        return function()
-            local self = this.unitFrame
-            if MouseIsOver(self.button) then
-                self.button:GetScript(scriptName)()
+        local auraTime = cache.AuraTimes[auraData.name]
+        if auraTime then
+            local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
+            local time
+            local format
+            if seconds < 60 then
+                time = seconds
+                if time == 1 then
+                    format = SPELL_TIME_REMAINING_SEC
+                else
+                    format = SPELL_TIME_REMAINING_SEC_P1
+                end
+            else
+                time = math.ceil(seconds / 60)
+                format = SPELL_TIME_REMAINING_MIN_P1
+            end
+            if auraTime.ownerName and seconds > -10 then
+                tooltip:AddDoubleLine(string.format(format, time), "Caster: "..auraTime.ownerName)
+            else
+                tooltip:AddLine(string.format(format, time))
             end
         end
+        tooltip:Show()
+    else
+        Puppeteer.print(colorize("Hovered over phantom aura!", 1, 0.3, 0.3))
+        Puppeteer.print("Unit: "..self:GetUnit())
+        Puppeteer.print("Aura: "..index.." ("..type..")")
+        local lastIndex = 0
+        for i = 1, 33 do
+            local aura = (type == "Buff" and cache.Buffs or cache.Debuffs)[i]
+            if not aura then
+                lastIndex = i - 1
+                break
+            end
+        end
+        Puppeteer.print("Final index: "..lastIndex)
     end
-
-    PTUnitFrame.Aura_OnClick = wrapButtonScript("OnClick")
-
-    PTUnitFrame.Aura_OnMouseUp = wrapButtonScript("OnMouseUp")
-
-    PTUnitFrame.Aura_OnMouseDown = wrapButtonScript("OnMouseDown")
 end
 
 local debuffTypeBorderColors = {
@@ -1101,6 +1155,9 @@ function PTUnitFrame:CreateAura(aura, name, index, texturePath, stacks, auraType
     local icon = aura.icon
     icon:SetAllPoints(frame)
     icon:SetTexture(texturePath)
+
+    local button = aura.button
+    button:SetAllPoints(frame)
 
     if aura.durationEnabled then
         local overlay = aura.overlay
@@ -1133,21 +1190,23 @@ function PTUnitFrame:CreateAura(aura, name, index, texturePath, stacks, auraType
             local debuffTime = cache.AuraTimes[name]
             local start = debuffTime["startTime"]
             local duration = debuffTime["duration"]
-            local durationUI = aura.duration
+            if start + duration + 4 > GetTime() then -- Don't display duration if the predicted time has lapsed
+                local durationUI = aura.duration
 
-            CooldownFrame_SetTimer(durationUI, start, duration, 1)
+                CooldownFrame_SetTimer(durationUI, start, duration, 1)
 
-            if duration < 60 then
-                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Short
-            elseif duration <= 60 * 2 then
-                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Medium
-            else
-                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Long
+                if duration < 60 then
+                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Short
+                elseif duration <= 60 * 2 then
+                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Medium
+                else
+                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Long
+                end
+
+                -- To prevent having a frame where the duration is not updated
+                aura.durationText:SetSeconds(nil)
+                util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
             end
-
-            -- To prevent having a frame where the duration is not updated
-            aura.durationText:SetSeconds(nil)
-            util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
         end
     end
 end
@@ -1499,7 +1558,7 @@ function PTUnitFrame:UpdateComponent(component, props, xOffset, yOffset)
 
     component:ClearAllPoints()
     if component.SetFont then -- Must be a FontString
-        component:SetWidth(math.min(props.MaxWidth, anchor:GetWidth()))
+        component:SetWidth(math.min(props:GetMaxWidth(), anchor:GetWidth()))
         component:SetHeight(props.FontSize * 1.25)
         component:SetFont("Fonts\\FRIZQT__.TTF", props.FontSize, props.Outline and "OUTLINE" or nil)
         if props.Outline then

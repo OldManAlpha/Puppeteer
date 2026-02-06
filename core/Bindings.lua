@@ -5,6 +5,7 @@ local util = PTUtil
 local colorize = util.Colorize
 local GetSpellID = util.GetSpellID
 local GetClass = util.GetClass
+local CompostReclaim = util.CompostReclaim
 
 BindingClipboard = nil
 
@@ -84,6 +85,27 @@ function GetBindingLoadoutNames()
     return names
 end
 
+-- Returns a pruned copy of the loadout using composted tables
+function PruneLoadoutCompost(loadout)
+    loadout = util.CloneTableCompost(loadout, true)
+    for targetName, target in pairs(loadout.Bindings) do
+        for modifierName, modifier in pairs(target) do
+            for button, binding in pairs(modifier) do
+                local shouldRemove = PruneBinding(binding, true)
+                if shouldRemove then
+                    CompostReclaim(binding)
+                    modifier[button] = nil
+                end
+            end
+            if util.IsTableEmpty(modifier) then
+                CompostReclaim(modifier)
+                target[modifierName] = nil
+            end
+        end
+    end
+    return loadout
+end
+
 function PruneLoadout(loadout, copy)
     if copy then
         loadout = util.CloneTable(loadout, true)
@@ -104,8 +126,8 @@ function PruneLoadout(loadout, copy)
     return loadout
 end
 
-function PruneBinding(binding)
-    if not binding.Type then
+function PruneBinding(binding, useCompost)
+    if not binding.Type or not binding.Data then
         return true
     end
     if binding.Tooltip then
@@ -116,6 +138,9 @@ function PruneBinding(binding)
         end
 
         if util.IsTableEmpty(tooltip) then
+            if useCompost then
+                CompostReclaim(binding.Tooltip)
+            end
             binding.Tooltip = nil
         end
     end
@@ -150,8 +175,48 @@ function ExpandBinding(binding)
     end
 end
 
-function LoadoutEquals(loadout1, loadout2, noCopy)
-    return util.TableEquals(PruneLoadout(loadout1, not noCopy), PruneLoadout(loadout2, not noCopy))
+function LoadoutEquals(loadout1, loadout2)
+    loadout1 = PruneLoadoutCompost(loadout1)
+    loadout2 = PruneLoadoutCompost(loadout2)
+    local equals = util.TableEquals(loadout1, loadout2)
+    CompostReclaim(loadout1)
+    CompostReclaim(loadout2)
+    return equals
+end
+
+function GetNumLoadoutChanges(origLoadout, modifiedLoadout)
+    origLoadout = PruneLoadoutCompost(origLoadout)
+    modifiedLoadout = PruneLoadoutCompost(modifiedLoadout)
+    local numChanges = 0
+    local alreadyChecked = compost:GetTable()
+    for targetName, target in pairs(modifiedLoadout.Bindings) do
+        for modifierName, modifier in pairs(target) do
+            for button, binding in pairs(modifier) do
+                local otherBinding = util.TraverseTable(origLoadout.Bindings, targetName, modifierName, button)
+                if otherBinding == nil or not util.TableEquals(binding, otherBinding) then
+                    numChanges = numChanges + 1
+                    alreadyChecked[binding] = true
+                end
+            end
+        end
+    end
+    for targetName, target in pairs(origLoadout.Bindings) do
+        for modifierName, modifier in pairs(target) do
+            for button, binding in pairs(modifier) do
+                local otherBinding = util.TraverseTable(modifiedLoadout.Bindings, targetName, modifierName, button)
+                if not alreadyChecked[otherBinding] and (otherBinding == nil or not util.TableEquals(binding, otherBinding)) then
+                    numChanges = numChanges + 1
+                end
+            end
+        end
+    end
+    if origLoadout.UseFriendlyForHostile ~= modifiedLoadout.UseFriendlyForHostile then
+        numChanges = numChanges + 1
+    end
+    CompostReclaim(origLoadout)
+    CompostReclaim(modifiedLoadout)
+    compost:Reclaim(alreadyChecked)
+    return numChanges
 end
 
 -- Returns a copy of the clipboard
@@ -364,6 +429,11 @@ PVPProtectMenu:SetOptions({
     }
 })
 
+function ShouldTriggerPVPFlagProtection(unit, spell)
+    return PTOptions.PVPFlagProtection and not util.IsReallyInInstance() and UnitIsPVP(unit) and UnitIsPlayer(unit) 
+        and not UnitIsPVP("player") and PVPProtectOverrideTime < GetTime() and not util.ResurrectionSpellsSet[spell]
+end
+
 local Sound_Disabled = function() end
 
 function RunTargetedAction(binding, unit, actionFunc, mustTempTarget)
@@ -418,8 +488,23 @@ function RunBinding_Spell(binding, unit)
             and UnitAffectingCombat("player") then
                 spell = "Revive Champion"
         else
-            spell = ResurrectionSpells[GetClass("player")] or spell
+            spell = util.ResurrectionSpells[GetClass("player")] or spell
         end
+    end
+
+    if spell == nil or spell == "" then
+        return
+    end
+
+    if ShouldTriggerPVPFlagProtection(unit, spell) then
+        if MouseoverFrame then
+            PVPProtectMenu:SetToggleState(false)
+            local frame = MouseoverFrame:GetRootContainer()
+            PVPProtectMenu:SetToggleState(true, frame, frame:GetWidth(), frame:GetHeight())
+            PVPProtectMenu:SetKeepOpen(true)
+        end
+        PlaySound("igMainMenuOpen")
+        return
     end
 
     RunTargetedAction(binding, unit, setupTargetedCast(spell, unit), not util.IsSuperWowPresent())
@@ -466,7 +551,18 @@ local preScript = "local unit = PTScriptUnit;"..
                 "local unitData = PTUnit.Get(unit);"..
                 "local unitFrame = PTScriptUnitFrame;"
 BindingScriptCache = {}
-BindingEnvironment = setmetatable({_G = _G, api = BindingScriptAPI}, {__index = PTUnitProxy or _G})
+BindingEnvironment = setmetatable({_G = _G, 
+    api = BindingScriptAPI, 
+    print = function(...)
+        local str = table.getn(arg) > 0 and tostring(arg[1]) or ""
+        if table.getn(arg) > 1 then
+            for i = 2, table.getn(arg) do
+                str = str..tostring(arg[i])
+            end
+        end
+        DEFAULT_CHAT_FRAME:AddMessage(str)
+    end
+}, {__index = PTUtil})
 local targetedScript
 local function targetedScriptFunc()
     local ok, result = pcall(targetedScript)
@@ -617,15 +713,6 @@ function RunBinding(binding, unit, unitFrame)
     local bindingType = binding.Type
     if bindingType == "SPELL" then
         if targetCastable then
-            if PTOptions.PVPFlagProtection and not IsInInstance() and UnitIsPVP(unit) and UnitIsPlayer(unit) 
-                    and not UnitIsPVP("player") and PVPProtectOverrideTime < GetTime() then
-                PVPProtectMenu:SetToggleState(false)
-                local frame = unitFrame:GetRootContainer()
-                PVPProtectMenu:SetToggleState(true, frame, frame:GetWidth(), frame:GetHeight())
-                PVPProtectMenu:SetKeepOpen(true)
-                PlaySound("igMainMenuOpen")
-                return
-            end
             RunBinding_Spell(binding, unit)
         end
     elseif bindingType == "ACTION" then

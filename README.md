@@ -52,7 +52,7 @@ While not required, the mods listed below will massively improve your experience
 | Mod | Enhancement |
 | - | - |
 | SuperWoW ([GitHub](https://github.com/balakethelock/SuperWoW)) | - Shows more accurate incoming healing, and shows incoming healing from players that do not have HealComm<br>- Track the remaining duration of many buffs and HoTs on other players<br>- Allows casting on players without doing split-second target switching<br>- Lets you see accurate distance to friendly players/NPCs<br>- Lets you set units you're hovering over as your mouseover target |
-| UnitXP SP3 ([GitHub](https://github.com/jrc13245/UnitXP_SP3)) | Allows Puppeteer to show very accurate distance to both friendly players and enemies, and show if they're out of line-of-sight |
+| UnitXP SP3 ([Codeberg](https://codeberg.org/konaka/UnitXP_SP3/wiki)) | Allows Puppeteer to show very accurate distance to both friendly players and enemies, and show if they're out of line-of-sight |
 | Nampower ([GitHub](https://github.com/pepopo978/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
 
 ### Roadmap of Major Planned Features
@@ -61,9 +61,9 @@ Tentative, this could change at any time.
 - [X] ~~1.0.0~~
   - ~~Overhaul bindings~~
   - ~~Lay out groundwork for GUI development~~
-- [ ] 1.1.0
-  - Support non-English clients
-  - Add Enemy frames (SuperWoW Required)
+- [X] 1.1.0
+  - ~~Support non-English clients~~
+  - ~~Add Enemy frames (SuperWoW Required)~~
 - [ ] 1.2.0 and/or 1.3.0
   - Cell-like unit frame customization
   - Customizable buff/debuff tracking
@@ -75,13 +75,13 @@ Tentative, this could change at any time.
 
 | Question/Issue | Answer |
 | - | - |
-| **I can't see any buffs or HoTs on players** | If you're using a non-English WoW client, they are currently not supported by Puppeteer. See these issues for more information: https://github.com/i2ichardt/HealersMate/issues/22 https://github.com/i2ichardt/HealersMate/issues/24 |
-| **Casting on other players doesn't work** | If you are using the CallOfElements addon, there is an issue with that addon that prevents Puppeteer from casting properly. To fix it, install [this version of CallOfElements](https://github.com/laytya/CallOfElements). |
+| **Focus/Enemy Frames Don't Work** | If you are using the PerfBoost mod, you must turn off the `Filter GUID Events` setting. |
+| **Casting on other players doesn't work** | You likely have another addon that is interfering with Puppeteer's ability to cast directly. Try disabling other addons until you find the culprit. CallOfElements is known to cause this issue. To fix it, use [this version of CallOfElements](https://github.com/MarcelineVQ/CallOfElements). |
 </details>
 
 ### Credits
 
 - [i2ichardt](https://github.com/i2ichardt) - Original HealersMate Author
 - Turtle WoW Community - Answers to addon development questions
-- [Shagu](https://shagu.org/) - Utility functions, providing a wealth of research material, and general inspiration
+- [Shagu](https://github.com/shagu) - Utility functions, providing a wealth of research material, and general inspiration
 - @blondieart (Discord) - Created the art at the top of this page

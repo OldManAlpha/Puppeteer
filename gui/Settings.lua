@@ -13,6 +13,16 @@ function Init()
         :SetSize(425, 475)
         :SetSimpleBackground(PTGuiComponent.BACKGROUND_DIALOG)
         :SetSpecial()
+    
+    local origHide = TabFrame:GetHandle().Hide
+    TabFrame:GetHandle().Hide = function(self)
+        origHide(self)
+        if EditedBindings then
+            if Puppeteer.GetNumLoadoutChanges(Puppeteer.GetBindings(), EditedBindings) > 0 then
+                Puppeteer.Info("You have unsaved changes to your bindings")
+            end
+        end
+    end
 
     if PTOptions.Debug2 then
         TabFrame:Show()
@@ -96,6 +106,7 @@ function CreateTab_Bindings()
                             Puppeteer.SetSelectedBindingsLoadout(loadoutName)
                             EditedBindings = editedBindings
                             UpdateBindingsInterface()
+                            UpdateUnsavedChanges()
                             PopOverlayFrame()
                             dialog:Dispose()
                         end)
@@ -118,7 +129,7 @@ function CreateTab_Bindings()
         :SetText("New")
         :OnClick(function(self)
             if util.GetTableSize(Puppeteer.GetBindingLoadouts()) >= 20 then
-                DEFAULT_CHAT_FRAME:AddMessage("You cannot create any more loadouts!")
+                Puppeteer.Info("You cannot create any more loadouts!")
                 return
             end
 
@@ -165,7 +176,7 @@ function CreateTab_Bindings()
                 end
             end
             if not anotherLoadoutName then
-                DEFAULT_CHAT_FRAME:AddMessage("Cannot delete the only loadout")
+                Puppeteer.Info("Cannot delete the only loadout")
                 return
             end
             local dialog = PTGuiLib.Get("simple_dialog", TabFrame)
@@ -225,6 +236,7 @@ function CreateTab_Bindings()
             EditedBindings.UseFriendlyForHostile = self:GetChecked() == 1
             SetTargetContext("Friendly")
             UpdateBindingsInterface()
+            UpdateUnsavedChanges()
         end)
     UniversalBindingsCheckbox = universalBindingsCheckbox
 
@@ -253,11 +265,36 @@ function CreateTab_Bindings()
 
     SpellBindInterface = interface
 
-    LoadBindings()
+    UnsavedChangesText = PTGuiLib.GetText(container, "", 12)
+        :SetPoint("TOP", interface, "BOTTOM", 0, -3)
+        --:SetTextColor(1, 0.2, 0.2)
     
 
+    DiscardButton = PTGuiLib.Get("button", container)
+        :SetPoint("BOTTOMLEFT", container, "BOTTOMLEFT", 10, 35)
+        :SetSize(125, 25)
+        :SetText("Discard Changes")
+        :OnClick(function()
+            LoadBindings()
+        end)
+    SaveAndCloseButton = PTGuiLib.Get("button", container)
+        :SetPoint("BOTTOM", container, "BOTTOM", 0, 35)
+        :SetSize(125, 25)
+        :SetText("Save & Close")
+        :OnClick(function()
+            SaveBindings()
+            TabFrame:Hide()
+        end)
+    SaveButton = PTGuiLib.Get("button", container)
+        :SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -10, 35)
+        :SetSize(125, 25)
+        :SetText("Save Changes")
+        :OnClick(function()
+            SaveBindings()
+        end)
+
     local addButton = PTGuiLib.Get("button", container)
-        :SetPoint("TOP", container, "TOP", 0, -440)
+        :SetPoint("TOP", container, "TOP", 0, -445)
         :SetSize(200, 25)
         :SetText("Add or Remove Buttons")
         :ApplyTooltip("Edit what buttons you can bind spells to")
@@ -267,28 +304,7 @@ function CreateTab_Bindings()
             AddOverlayFrame(editor)
         end)
 
-    local discardButton = PTGuiLib.Get("button", container)
-        :SetPoint("BOTTOMLEFT", container, "BOTTOMLEFT", 10, 50)
-        :SetSize(125, 25)
-        :SetText("Discard Changes")
-        :OnClick(function()
-            LoadBindings()
-        end)
-    local saveAndCloseButton = PTGuiLib.Get("button", container)
-        :SetPoint("BOTTOM", container, "BOTTOM", 0, 50)
-        :SetSize(125, 25)
-        :SetText("Save & Close")
-        :OnClick(function()
-            SaveBindings()
-            TabFrame:Hide()
-        end)
-    local saveButton = PTGuiLib.Get("button", container)
-        :SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -10, 50)
-        :SetSize(125, 25)
-        :SetText("Save Changes")
-        :OnClick(function()
-            SaveBindings()
-        end)
+    LoadBindings()
 end
 
 function PromptNewLoadout()
@@ -354,11 +370,32 @@ function LoadBindings()
     end
     BindingsForDropdown:UpdateText()
     UpdateBindingsInterface()
+    UpdateUnsavedChanges()
 end
 
 function SaveBindings()
     Puppeteer.GetBindingLoadouts()[Puppeteer.GetSelectedBindingsLoadoutName()] = Puppeteer.PruneLoadout(EditedBindings)
     LoadBindings()
+end
+
+function UpdateUnsavedChanges()
+    local ok, changes = pcall(Puppeteer.GetNumLoadoutChanges, Puppeteer.GetBindings(), EditedBindings)
+    if not ok then
+        Puppeteer.print(changes)
+        changes = "ERROR"
+    end
+    if changes == 0 then
+        UnsavedChangesText:Hide()
+        DiscardButton:SetEnabled(false)
+        SaveAndCloseButton:SetEnabled(false)
+        SaveButton:SetEnabled(false)
+    else
+        UnsavedChangesText:Show()
+        UnsavedChangesText:SetText("You have "..changes.." unsaved change"..(changes ~= 1 and "s" or "").." to your bindings")
+        DiscardButton:SetEnabled(true)
+        SaveAndCloseButton:SetEnabled(true)
+        SaveButton:SetEnabled(true)
+    end
 end
 
 function CreateTab_Options()
@@ -389,7 +426,7 @@ function CreateTab_Options_Casting(panel)
         end
     end)
     factory:dropdown("Cast When (Keys)", "What key state to start casting spells at", "CastWhenKey", {"Key Up", "Key Down"})
-    local resSpell = Puppeteer.ResurrectionSpells[util.GetClass("player")]
+    local resSpell = util.ResurrectionSpells[util.GetClass("player")]
     local autoResInfo = not resSpell and "This does nothing for your class" or {"Replaces your bound spells with "..resSpell..
         " when clicking on a dead ally", "All other types of binds, such as Actions, will not be replaced"}
     factory:checkbox("Auto Resurrect", autoResInfo, "AutoResurrect")
@@ -499,12 +536,27 @@ function CreateTab_Options_Advanced(panel)
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", experimentsLabel, "BOTTOM", 0, -5)
     layout:offset(0, -70)
-    factory:checkbox("(TWoW) Auto Role", {"If enabled, the Role Action menu shows auto role detection options",
-        colorize("Using this functionality WILL cause errors and other unexpected behavior", 1, 0.4, 0.4)}, "Global.Experiments.AutoRole",
+    factory:checkbox("(TWoW)\nAuto Role", {"If enabled, the Role Action menu shows auto role detection options", "Enabled Account-Wide"}, 
+        "Global.Experiments.AutoRole",
         Puppeteer.InitRoleDropdown)
+    factory:checkbox("(SuperWoW & UnitXP)\nEnemy Frames", 
+        {"If enabled, you will see an additional frame group with in-combat enemies", "Requires SuperWoW and UnitXP SP3", 
+        "Enabled Per-Character"},
+        "Experiments.Enemy",
+        function()
+            Puppeteer.SetEnemyTrackingEnabled(PuppeteerSettings.IsExperimentEnabled("Enemy"))
+        end)
+    factory:checkbox("(SuperWoW)\nCast Icons", {"If enabled, you will see incoming casts over unit frames", 
+            "This feature is highly subject to changes", "Requires SuperWoW!", "Enabled Per-Character"},
+        "Experiments.CastIcons",
+        function()
+            if PTHealPredict then
+                PTHealPredict.RemoveAllCastIcons()
+            end
+        end)
 
     local scriptsLabel = CreateLabel(container, "Load & Postload Scripts")
-        :SetPoint("TOP", container, "TOP", 0, -105)
+        :SetPoint("TOP", container, "TOP", 0, -160)
         :SetFontSize(14)
 
     local loadScriptInfo = CreateLabel(container, "The Load Script runs after profiles are initialized, but before UIs are created, "..
@@ -634,7 +686,7 @@ function CreateTab_Options_Mods(panel)
         :SetJustifyH("LEFT")
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", unitXPDetectedLabel, "BOTTOM", 0, -10)
-    local unitXPLink = CreateLinkEditbox(container, "https://github.com/jrc13245/UnitXP_SP3")
+    local unitXPLink = CreateLinkEditbox(container, "https://codeberg.org/konaka/UnitXP_SP3/wiki")
         :SetPoint("TOP", unitXPInfo, "BOTTOM", 0, -5)
         :SetSize(300, 20)
     local unitXPLinkLabel = CreateLabel(container, "Link:")
@@ -882,7 +934,7 @@ function CreateTab_Customize()
     layout:offset(-65, 0):layoutComponent(styleDropdown)
     layout:offset(65, 0)
     StyleOverrideDropdown = styleDropdown
-    SetSelectedStyleOverride("Default")
+    SetSelectedStyleOverride(PTProfileManager.DEFAULT_PROFILE_NAME)
 
     local reloadUI = PTGuiLib.Get("button", container)
         :SetPoint("LEFT", styleDropdown, "RIGHT", 10, 0)
@@ -891,9 +943,13 @@ function CreateTab_Customize()
         :OnClick(ReloadUI)
 
     local function add(component, offsetY)
+        if component:Type() == "checkbox" then
+            offsetY = (offsetY or 0) - 12
+        end
         layout:offset(0, offsetY or 0):layoutComponent(component)
     end
     local createDropdown = CreateStyleOverrideDropdown
+    local createSlider = CreateStyleOverrideSlider
 
     local barStyles = util.ToArray(Puppeteer.BarStyles)
     table.sort(barStyles)
@@ -909,13 +965,25 @@ function CreateTab_Customize()
     add(createDropdown("Show Debuff Colors On", nil, "ShowDebuffColorsOn", {"Health Bar", "Name", "Health", "Hidden"}))
     add(createDropdown("Sort Units By", "The sorting algorithm for units in a group", "SortUnitsBy", {"ID", "Name", "Class Name"}))
     add(createDropdown("Growth Orientation", "Vertical grows units up and down, Horizontal grows units left and right", "Orientation", {"Vertical", "Horizontal"}))
+    add(createDropdown("Split Raid Into Groups", "If enabled, raids will be split based on the groups", "SplitRaidIntoGroups", {true, false}))
     add(createDropdown("Border Style", "The border of the group", "BorderStyle", {"Tooltip", "Dialog Box", "Borderless"}))
-    add(createDropdown("Max Units In Axis", "The maximum number of units in the growth axis until it must shift down", "MaxUnitsInAxis", {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-    add(createDropdown("Min Units X", "The minimum amount of unit space to take on the X-axis", "MinUnitsX", {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-    add(createDropdown("Min Units Y", "The minimum amount of unit space to take on the Y-axis", "MinUnitsY", {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-    add(createDropdown("Horizontal Spacing", "The number of pixels between units", "HorizontalSpacing", {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-    add(createDropdown("Vertical Spacing", "The number of pixels between units", "VerticalSpacing", {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-    add(createDropdown("Out of Range Opacity", "How opaque out of range players appear in %", "OutOfRangeOpacity", {0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100}))
+    add(createSlider("Background Opacity", "How opaque the background of the frame group is in %", "BackgroundOpacity", 0, 100))
+    add(createSlider("Max Units In Axis", "The maximum number of units in the growth axis until it must shift down", "MaxUnitsInAxis", 1, 20))
+    add(createSlider("Min Units X", "The minimum amount of unit space to take on the X-axis", "MinUnitsX", 0, 20))
+    add(createSlider("Min Units Y", "The minimum amount of unit space to take on the Y-axis", "MinUnitsY", 0, 20))
+    add(createSlider("Horizontal Spacing", "The number of pixels between units", "HorizontalSpacing", 0, 20))
+    add(createSlider("Vertical Spacing", "The number of pixels between units", "VerticalSpacing", 0, 20))
+    add(createSlider("Show Distance At\n(Friendly)", "How many yards to start showing friendly distance at", "ShowDistanceThreshold.Friendly", 0, 100))
+    add(createSlider("Show Distance At\n(Hostile)", "How many yards to start showing hostile distance at", "ShowDistanceThreshold.Hostile", 0, 100))
+    add(createSlider("Out of Range At\n(Friendly)", "How many yards to fade out friendly units", "OutOfRangeThreshold.Friendly", 0, 100))
+    add(createSlider("Out of Range At\n(Hostile)", "How many yards to fade out hostile units", "OutOfRangeThreshold.Hostile", 0, 100))
+    add(createSlider("Out of Range Opacity", "How opaque out of range players appear in %", "OutOfRangeOpacity", 0, 100))
+    local visualIssues = colorize("Adjusting this value may cause visual issues!", 1, 0.4, 0.4)
+    add(createSlider("Unit Frame Width", {"The width of each unit frame", visualIssues}, "Width", 20, 250))
+    add(createSlider("Health Bar Height", {"The height of the health bar", visualIssues}, "HealthBarHeight", 1, 100))
+    add(createSlider("Power Bar Height", {"The height of the power bar", visualIssues}, "PowerBarHeight", 1, 100))
+    add(createSlider("Aura Tracker Height", {"The height of tracked auras", visualIssues}, "AuraTracker.Height", 0, 50))
+    PopulateStyleOverrides()
 end
 
 function UpdateFrameOptions()
@@ -936,7 +1004,7 @@ function CreateStyleOverrideDropdown(text, tooltip, optionLoc, options)
             "initFunc", args.initFunc,
             "func", args.func)
         for _, option in ipairs(options) do
-            addOption("text", option,
+            addOption("text", tostring(option),
                 "option", option,
                 "initFunc", args.initFunc,
                 "func", args.func)
@@ -951,10 +1019,47 @@ function CreateStyleOverrideDropdown(text, tooltip, optionLoc, options)
         end
     })
     :SetTextUpdater(function(gui)
-        gui:SetText(GetStyleOverride(GetSelectedStyleOverride(), optionLoc) or "Use Style Default")
+        local value = GetStyleOverride(GetSelectedStyleOverride(), optionLoc)
+        gui:SetText(value ~= nil and tostring(value) or "Use Style Default")
     end)
-    StyleOverrideComponents[optionLoc] = dropdown
+    StyleOverrideComponents[optionLoc] = {Updater = function()
+        dropdown:UpdateText()
+    end}
     return dropdown
+end
+
+function CreateStyleOverrideSlider(text, tooltip, optionLoc, min, max)
+    local checkbox = CreateLabeledCheckbox(StyleOverrideContainer, text, tooltip)
+    checkbox:ApplyTooltip(tooltip, colorize("Check to override style default", 1, 0.4, 1))
+    local slider = CreateSlider(StyleOverrideContainer)
+    slider:SetMinMaxValues(min, max)
+    slider:GetSlider():SetNumberedText()
+    slider:GetSlider():HookScript("OnValueChanged", function()
+        SetStyleOverride(GetSelectedStyleOverride(), optionLoc, slider:GetSlider():GetValue())
+    end)
+    slider:SetPoint("LEFT", checkbox, "RIGHT", 5, 0)
+    slider:ApplyTooltip(tooltip)
+    local function Checkbox_OnClick()
+        local value = GetStyleOverride(GetSelectedStyleOverride(), optionLoc)
+        if checkbox:GetChecked() then
+            slider:Show()
+            if value == nil then
+                value = GetStyleOverride(PTProfileManager.GetDefaultProfile(CurrentStyleOverride), optionLoc)
+                SetStyleOverride(GetSelectedStyleOverride(), optionLoc, value)
+            end
+            slider:SetValue(value)
+        else
+            slider:Hide()
+            SetStyleOverride(GetSelectedStyleOverride(), optionLoc, nil)
+        end
+    end
+    checkbox:SetScript("OnClick", Checkbox_OnClick)
+    StyleOverrideComponents[optionLoc] = {Updater = function()
+        local hasOverride = GetStyleOverride(GetSelectedStyleOverride(), optionLoc) ~= nil
+        checkbox:SetChecked(hasOverride)
+        Checkbox_OnClick()
+    end}
+    return checkbox
 end
 
 function GetSelectedStyleOverride()
@@ -971,8 +1076,8 @@ function SetSelectedStyleOverride(style)
 end
 
 function PopulateStyleOverrides()
-    for _, dropdown in pairs(StyleOverrideComponents) do
-        dropdown:UpdateText()
+    for _, component in pairs(StyleOverrideComponents) do
+        component.Updater()
     end
 end
 

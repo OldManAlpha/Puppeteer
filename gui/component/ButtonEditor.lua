@@ -117,7 +117,7 @@ function PTButtonEditor:New()
                 obj:AddButtonLine(arg1, arg1)
                 PlaySound("igSpellBookOpen")
             else
-                DEFAULT_CHAT_FRAME:AddMessage("You cannot add any more non-mouse buttons!")
+                Puppeteer.Info("You cannot add any more non-mouse buttons!")
             end
         end
         obj:SetAddMode(false)
@@ -132,7 +132,7 @@ function PTButtonEditor:New()
                     obj:AddButtonLine("MOUSEWHEELUP", "MOUSEWHEELUP")
                     PlaySound("igSpellBookOpen")
                 else
-                    DEFAULT_CHAT_FRAME:AddMessage("You cannot add any more non-mouse buttons!")
+                    Puppeteer.Info("You cannot add any more non-mouse buttons!")
                 end
             end
         elseif arg1 < 0 then
@@ -141,7 +141,7 @@ function PTButtonEditor:New()
                     obj:AddButtonLine("MOUSEWHEELDOWN", "MOUSEWHEELDOWN")
                     PlaySound("igSpellBookOpen")
                 else
-                    DEFAULT_CHAT_FRAME:AddMessage("You cannot add any more non-mouse buttons!")
+                    Puppeteer.Info("You cannot add any more non-mouse buttons!")
                 end
             end
         end

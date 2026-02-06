@@ -100,7 +100,7 @@ function PTMultiEditor:New()
         :SetText("Add Binding")
         :OnClick(function()
             if table.getn(interface.Bindings) >= 20 then
-                DEFAULT_CHAT_FRAME:AddMessage("Cannot add any more bindings!")
+                Puppeteer.Info("Cannot add any more bindings!")
                 return
             end
             local binding = {}

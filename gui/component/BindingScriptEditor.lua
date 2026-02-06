@@ -97,8 +97,6 @@ function PTBindingScriptEditor:New()
             "unitData:HasBuff(buffName) -- Returns true if the unit has buffName",
             "unitData:HasDebuff(debuffName) -- Returns true if the unit has debuffName",
             "unitData:HasDebuffType(typeName) -- Returns true if the unit has the debuff type(such as \"Magic\")",
-            "unitData:GetDistance() -- Returns the distance between you and the unit(SuperWoW/UnitXP SP3 required)",
-            "unitData:IsInSight() -- Returns true if the unit is in your sight(UnitXP SP3 required)",
             "unitData:GetAuraTimeRemaining(auraName) -- Returns the time remaining on an aura, or nil if unknown(SuperWoW required)")
     local local4 = PTGuiLib.GetText(frame, "local unitFrame")
         :SetTextColor(0.4, 1, 0.4)

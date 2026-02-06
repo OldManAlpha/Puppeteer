@@ -39,9 +39,12 @@ local trackedCastedAuras = {
     ["Inner Fire"] = 10 * 60,
     -- Priest: Offensive
     ["Shadow Word: Pain"] = 18,
+    ["Holy Fire"] = 10,
+    ["Mind Control"] = 60,
     -- Paladin
     ["Blessing of Protection"] = 10,
     ["Hand of Protection"] = 10,
+    ["Divine Protection"] = 8,
     ["Divine Shield"] = 12,
     ["Holy Shield"] = 10,
     ["Bulwark of the Righteous"] = 12,
@@ -107,7 +110,12 @@ local trackedCastedAuras = {
     -- Generic
     ["First Aid"] = 8,
     ["Recently Bandaged"] = 60,
+    ["Rapid Healing"] = 15,
+    -- Emerald Sanctum
+    ["Call of Nightmare"] = 10
 }
+PTLocale.Keys(trackedCastedAuras)
+PuppeteerSettings.TrackedCastedAuras = trackedCastedAuras
 
 -- Auras to start the timer for even though they weren't directly casted
 local additionalAuras = {
@@ -118,6 +126,10 @@ local additionalAuras = {
     ["First Aid"] = {"Recently Bandaged"},
     ["Power Word: Shield"] = {"Weakened Soul"}
 }
+PTLocale.Keys(additionalAuras)
+for _, array in pairs(additionalAuras) do
+    PTLocale.Array(array)
+end
 
 -- Value is range
 local aoeAuras = {
@@ -128,6 +140,7 @@ local aoeAuras = {
     ["Gift of the Wild"] = 100, 
     ["Battle Shout"] = 20
 }
+PTLocale.Keys(aoeAuras)
 
 -- Paladins always get their own special stuff..
 -- Their buffs are aoe but apply to the whole raid for a specific class
@@ -135,10 +148,12 @@ local aoeClassAuras = PTUtil.ToSet({
     "Greater Blessing of Wisdom", "Greater Blessing of Might", "Greater Blessing of Salvation", 
     "Greater Blessing of Sanctuary", "Greater Blessing of Kings", "Greater Blessing of Light"
 })
+PTLocale.Keys(aoeClassAuras)
 
-local function applyTimedAura(spellName, units)
+local function applyTimedAura(spellName, owner, units)
     for _, unit in ipairs(units) do
-        PTUnit.Get(unit).AuraTimes[spellName] = {["startTime"] = GetTime(), ["duration"] = trackedCastedAuras[spellName]}
+        PTUnit.Get(unit).AuraTimes[spellName] = {["startTime"] = GetTime(), ["duration"] = trackedCastedAuras[spellName], 
+            ["owner"] = owner, ["ownerName"] = UnitName(owner)}
         for ui in Puppeteer.UnitFrames(unit) do
             ui:UpdateAuras()
         end
@@ -164,7 +179,7 @@ castEventFrame:SetScript("OnEvent", function()
                 local targets = PTUtil.GetSurroundingPartyMembers(target, aoeAuras[spellName])
                 for _, unit in ipairs(targets) do
                     local units = PTGuidRoster.GetAllUnits(unit)
-                    applyTimedAura(spellName, units)
+                    applyTimedAura(spellName, caster, units)
                 end
             elseif aoeClassAuras[spellName] then
                 local class = PTUtil.GetClass(target)
@@ -172,16 +187,16 @@ castEventFrame:SetScript("OnEvent", function()
                 for _, unit in ipairs(targets) do
                     if PTUtil.GetClass(unit) == class then
                         local units = PTGuidRoster.GetAllUnits(unit)
-                        applyTimedAura(spellName, units)
+                        applyTimedAura(spellName, caster, units)
                     end
                 end
             else
-                applyTimedAura(spellName, units)
+                applyTimedAura(spellName, caster, units)
             end
 
             if additionalAuras[spellName] then
                 for _, aura in ipairs(additionalAuras[spellName]) do
-                    applyTimedAura(aura, units)
+                    applyTimedAura(aura, caster, units)
                 end
             end
         end
