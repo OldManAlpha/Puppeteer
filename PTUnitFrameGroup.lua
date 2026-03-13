@@ -250,8 +250,6 @@ function PTUnitFrameGroup:Initialize()
     borderFrame:SetPoint("CENTER", container, 0, 0)
 
     self:ApplyProfile()
-
-    self:UpdateUIPositions()
 end
 
 function PTUnitFrameGroup:ApplyProfile()
