@@ -53,7 +53,7 @@ While not required, the mods listed below will massively improve your experience
 | - | - |
 | SuperWoW ([GitHub](https://github.com/balakethelock/SuperWoW)) | - Shows more accurate incoming healing, and shows incoming healing from players that do not have HealComm<br>- Track the remaining duration of many buffs and HoTs on other players<br>- Allows casting on players without doing split-second target switching<br>- Lets you see accurate distance to friendly players/NPCs<br>- Lets you set units you're hovering over as your mouseover target |
 | UnitXP SP3 ([Codeberg](https://codeberg.org/konaka/UnitXP_SP3/wiki)) | Allows Puppeteer to show very accurate distance to both friendly players and enemies, and show if they're out of line-of-sight |
-| Nampower ([GitHub](https://github.com/pepopo978/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
+| Nampower ([Gitea](https://gitea.com/avitasia/nampower)) | Drastically decreases the amount of time in between casting consecutive spells  |
 
 ### Roadmap of Major Planned Features
 
