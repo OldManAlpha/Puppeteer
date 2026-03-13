@@ -64,10 +64,11 @@ function AddUpdateBindingsFunction(funcName)
         funcName = funcName
     })
 end
-function AddUpdateBindingsFrame(frameName)
-    if _G[frameName] then
+function AddUpdateBindingsFrame(frame)
+    frame = type(frame) ~= "string" and frame or _G[frame]
+    if frame then
         table.insert(updateBindingsFrames, {
-            frame = _G[frameName]
+            frame = frame
         })
     end
 end
@@ -94,6 +95,9 @@ AddUpdateBindingsFrame("WorldMapMicroButton")
 util.RunLater(function()
     AddUpdateBindingsFrame("pfActionBar") -- pfUI
     AddUpdateBindingsFrame("DFRL_HotkeyBinding") -- Dragonflight Reloaded
+    if DRAGONFLIGHT then -- DF3
+        AddUpdateBindingsFrame((function() DRAGONFLIGHT() return DF.setups.actionbars.eventFrame end)())
+    end
 end)
 
 local function StopUpdateBindingsUpdates()
