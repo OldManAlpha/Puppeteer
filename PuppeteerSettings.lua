@@ -365,9 +365,9 @@ end
 
 -- Buffs/debuffs that significantly modify healing
 DefaultTrackedHealingBuffs = {"Amplify Magic", "Dampen Magic", "Master Demonologist"}
-DefaultTrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Gehennas' Curse", 
-    "Necrotic Poison", "Blood Fury", "Necrotic Aura", "Brood Affliction: Green",
-    "Shadowbane Curse" -- Turtle WoW
+DefaultTrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Mortal Wound", 
+    "Gehennas' Curse", "Necrotic Poison", "Blood Fury", "Necrotic Aura", "Brood Affliction: Green",
+    "Shadowbane Curse", "Leeching Bite" -- Turtle WoW
 }
 -- Tracked buffs for all classes
 DefaultTrackedBuffs = {
@@ -377,11 +377,11 @@ DefaultTrackedBuffs = {
     "Shield Wall", "Recklessness", "Last Stand", -- Warrior
     "Evasion", "Vanish", -- Rogue
     "Deterrence", "Feign Death", "Mend Pet", -- Hunter
-    "Frenzied Regeneration", "Innervate", "Abolish Poison", -- Druid
+    "Tranquility", "Frenzied Regeneration", "Berserk", "Barkskin", "Barkskin (Feral)", "Innervate", "Abolish Poison", -- Druid
     "Soulstone Resurrection", "Sacrifice", "Hellfire", "Health Funnel", -- Warlock
     "Ice Block", "Evocation", "Ice Barrier", "Mana Shield", -- Mage
-    "Quel'dorei Meditation", "Grace of the Sunwell", -- Racial
-    "First Aid", "Food", "Drink", "Invulnerability", "Living Free Action", "Rapid Healing" -- Generic
+    "Quel'dorei Meditation", "Grace of the Sunwell", "Cannibalize", -- Racial
+    "First Aid", "Food", "Drink", "Invulnerability", "Living Free Action", "Persistent Shield", "Rapid Healing" -- Generic
 }
 -- Tracked buffs for specific classes
 DefaultClassTrackedBuffs = {
@@ -394,9 +394,10 @@ DefaultClassTrackedBuffs = {
         "Champion's Bond", "Fear Ward", "Inner Fire", "Renew", "Greater Heal", "Lightwell Renew", "Inspiration", 
         "Fade", "Reactive Fade", "Spirit Tap", "Enlighten", "Enlightened"},
     ["WARRIOR"] = {"Battle Shout"},
-    ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth", "Blooming Bud"},
+    ["DRUID"] = {"Gift of the Wild", "Mark of the Wild", "Thorns", "Rejuvenation", "Regrowth", "Dash", "Blooming Bud"},
     ["SHAMAN"] = {"Water Walking", "Healing Way", "Ancestral Fortitude"},
-    ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor"},
+    ["MAGE"] = {"Arcane Brilliance", "Arcane Intellect", "Frost Armor", "Ice Armor", "Mage Armor", "Fire Ward", "Frost Ward", 
+        "Arcane Power"},
     ["WARLOCK"] = {"Demon Armor", "Demon Skin", "Unending Breath", "Shadow Ward", "Fire Shield", "Consume Shadows"},
     ["HUNTER"] = {"Rapid Fire", "Quick Shots", "Quick Strikes", "Aspect of the Pack", 
         "Aspect of the Wild", "Bestial Wrath", "Feed Pet Effect"}
@@ -405,24 +406,44 @@ DefaultClassTrackedBuffs = {
 -- Tracked debuffs for all classes
 DefaultTrackedDebuffs = {
     "Forbearance", "Hammer of Justice", -- Paladin
-    "Silence", "Mind Control", -- Priest
+    "Silence", "Mind Control", "Psychic Scream", -- Priest
     "Death Wish", "Intimidating Shout", -- Warrior
     "Enrage", "Entangling Roots", -- Druid
     "Frost Nova", "Polymorph", -- Mage
     "Fear", "Seduction", -- Warlock
-    "Recently Bandaged", "Resurrection Sickness", "Ghost", "Net", -- Generic
-    "Deafening Screech", "Hooked Net", "Web Explosion", "Chains of Ice", -- Applied by mobs
+    "Recently Bandaged", "Greater Dreamless Sleep", "Dreamless Sleep", "Resurrection Sickness", "Ghost", "Net", -- Generic
+    "Deafening Screech", "Hooked Net", "Web Explosion", "Chains of Ice", "Acid Spit", -- Applied by mobs
     "Fungal Spores", -- Stormwrought Castle
-    "Hex", -- Zul'Farrak
+    "Sonic Burst", -- Uldaman
+    "Hex", "Freeze Solid", "Petrify", -- Zul'Farrak
+    "Howl of Terror", -- Gilneas City
+    "Living Bomb", "Ancient Dread", "Withering Heat", -- Molten Core
     "Bellowing Roar", -- Onyxia/Nefarian
-    "Brood Affliction: Bronze", "Corrupted Healing", -- BWL
-    "Phantom Scream", "Smoke Bomb", -- Kara10
-    "Acid Spit", "Call of Nightmare", -- Emerald Sanctum
-    "Corrupted Mind", "Frost Blast", "Veil of Darkness" -- Naxxramas
+    "Intimidating Roar", -- ZG
+    "Brood Affliction: Bronze", "Corrupted Healing", "Shadow of Ebonroc", -- BWL
+    "Frost Breath", "Death Coil", -- Karazhan Crypts
+    "Phantom Scream", "Smoke Bomb", "Terrifying Presence", "Moroes Curse", -- Kara10
+    "Acid Breath", "Call of Nightmare", "Dreamstate", "Fever Dream", -- Emerald Sanctum
+    "Poison Bolt", "Plague", -- AQ40
+    "Corrupted Mind", "Frost Blast", "Veil of Darkness", "Web Wrap", "Poison Charge", "Life Drain" -- Naxxramas
 }
 -- Tracked debuffs for specific classes
 DefaultClassTrackedDebuffs = {
     ["PRIEST"] = {"Weakened Soul"}
+}
+
+-- Debuffs which should highlight the unit frame
+DefaultImportantDebuffs = {
+    "Living Bomb", "Plague", "Web Wrap", "Frost Blast", "Poison Charge"
+}
+
+-- Debuffs which are dispellable but should not change the health bar color
+DefaultIgnoredDispellableDebuffs = {
+    "Frostbolt", "Icicles", -- Mage
+    "Greater Dreamless Sleep", "Dreamless Sleep", -- Generic
+    "Emerald Rot", "Sanctum Mind Decay", "Emerald Instability", -- Emerald Sanctum
+    "Frost Shock", -- Kara10
+    "Arcane Overload", "Doom of Medivh" -- Kara40
 }
 
 PTLocale.Array(DefaultTrackedHealingBuffs)
@@ -435,11 +456,15 @@ end
 for _, debuffs in pairs(DefaultClassTrackedDebuffs) do
     PTLocale.Array(debuffs)
 end
+PTLocale.Array(DefaultImportantDebuffs)
+PTLocale.Array(DefaultIgnoredDispellableDebuffs)
 
 -- The baked aura sets
 TrackedBuffs = {}
 TrackedDebuffs = {}
 TrackedDebuffTypes = {}
+ImportantDebuffs = {}
+IgnoredDispellableDebuffs = {}
 TrackedHealingBuffs = {}
 TrackedHealingDebuffs = {}
 
@@ -448,6 +473,8 @@ function BakeTrackedAuras()
     util.ClearTable(TrackedDebuffs)
     util.ClearTable(TrackedHealingBuffs)
     util.ClearTable(TrackedHealingDebuffs)
+    util.ClearTable(ImportantDebuffs)
+    util.ClearTable(IgnoredDispellableDebuffs)
 
     local trackedBuffsArray = {}
     if DefaultClassTrackedBuffs[playerClass] then
@@ -467,6 +494,9 @@ function BakeTrackedAuras()
 
     util.ToSet(DefaultTrackedHealingBuffs, false, TrackedHealingBuffs)
     util.ToSet(DefaultTrackedHealingDebuffs, false, TrackedHealingDebuffs)
+
+    util.ToSet(DefaultImportantDebuffs, false, ImportantDebuffs)
+    util.ToSet(DefaultIgnoredDispellableDebuffs, false, IgnoredDispellableDebuffs)
 end
 
 BakeTrackedAuras()

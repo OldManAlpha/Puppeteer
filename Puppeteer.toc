@@ -84,7 +84,8 @@ gui\component\NewLoadout.lua
 gui\component\LoadScriptEditor.lua
 gui\Settings.lua
 
-CastIcon.lua
+gui\component\uf\CastIcon.lua
+gui\component\uf\HighlightBorder.lua
 
 libs\GuidRoster.lua
 libs\AuraTracker.lua

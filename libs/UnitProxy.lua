@@ -452,12 +452,17 @@ function CreateUnitProxies()
             return UnitXP(a1, a2, a3, a4, a5)
         end
     end)
-    CustomProxy("UnitGUID", function()
-        return function(unit)
-            local _, guid = UnitExists(unit)
-            return guid
-        end
-    end)
+    if _G.GetUnitGUID then
+        UnitProxy("UnitGUID", _G.GetUnitGUID, nil)
+        UnitProxy("GetUnitGUID", _G.GetUnitGUID, nil)
+    else
+        CustomProxy("UnitGUID", function()
+            return function(unit)
+                local _, guid = UnitExists(unit)
+                return guid
+            end
+        end)
+    end
 
     UpdateImports()
 end

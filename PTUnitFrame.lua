@@ -719,7 +719,7 @@ function PTUnitFrame:GetDebuffColor()
     local enemy = self:IsEnemy()
     if not enemy then -- Do not display debuff colors for enemies
         for _, trackedDebuffType in ipairs(PuppeteerSettings.TrackedDebuffTypes) do
-            if self:GetAfflictedDebuffTypes()[trackedDebuffType] then
+            if self:GetTrackedDebuffTypes()[trackedDebuffType] then
                 local debuffTypeColor = PuppeteerSettings.DebuffTypeColors[trackedDebuffType]
                 return debuffTypeColor[1], debuffTypeColor[2], debuffTypeColor[3]
             end
@@ -865,7 +865,7 @@ function PTUnitFrame:AllocateAura()
             end
         end)
         return {["frame"] = frame, ["icon"] = icon, ["border"] = border, ["stackText"] = stackText, ["overlay"] = durationOverlayFrame, 
-            ["durationText"] = durationText, ["duration"] = duration, ["durationEnabled"] = true}
+            ["durationText"] = durationText, ["duration"] = duration}
     end
     return {["frame"] = frame, ["icon"] = icon, ["border"] = border, ["stackText"] = stackText}
 end
@@ -978,7 +978,7 @@ function PTUnitFrame:ReleaseAuras()
             table.insert(self.auraButtonPool, button)
         end
 
-        if aura.durationEnabled then
+        if util.IsSuperWowPresent() then
             aura.durationText:SetSeconds(nil)
             CooldownFrame_SetTimer(aura.duration, 0, 0, 0)
         end
@@ -1001,15 +1001,49 @@ do
         return trackedDebuffs[a.name] < trackedDebuffs[b.name]
     end
 end
-
+local enemyDebuffSorter = function(a, b)
+    if a.time and not b.time then
+        return true
+    end
+    if not a.time and b.time then
+        return false
+    end
+    if not a.time and not b.time then
+        return a.name > b.name
+    end
+    if UnitIsUnit(a.time.owner, "player") and not UnitIsUnit(b.time.owner, "player") then
+        return true
+    end
+    if not UnitIsUnit(a.time.owner, "player") and UnitIsUnit(b.time.owner, "player") then
+        return false
+    end
+    return (a.time.startTime + a.time.duration) < (b.time.startTime + b.time.duration)
+end
 function PTUnitFrame:UpdateAuras()
+    Puppeteer.StartTiming("UFUpdateAuras")
     local profile = self:GetProfile()
     local unit = self.unit
     local enemy = self:IsEnemy()
 
     self:ReleaseAuras()
 
+    if profile.AuraTracker.Height < 1 then
+        return
+    end
+
     local cache = self:GetCache()
+
+    if cache.HasImportantAura then
+        if not self.highlightBorder then
+            self.highlightBorder = PTGuiLib.Get("puppeteer_highlight_border")
+            self.highlightBorder:AttachToUnitFrame(self)
+        end
+    else
+        if self.highlightBorder then
+            self.highlightBorder:Dispose()
+            self.highlightBorder = nil
+        end
+    end
     
     local trackedBuffs = PuppeteerSettings.TrackedBuffs
 
@@ -1046,6 +1080,8 @@ function PTUnitFrame:UpdateAuras()
     if not enemy then
         table.sort(debuffs, self.DebuffSorter)
         util.AppendArrayElements(debuffs, typedDebuffs)
+    elseif util.IsSuperWowPresent() then
+        table.sort(debuffs, enemyDebuffSorter)
     end
 
     local auraTrackerProps = profile.AuraTracker
@@ -1066,36 +1102,37 @@ function PTUnitFrame:UpdateAuras()
     local yOffset = profile.TrackedAurasAlignment == "TOP" and 0 or origSize - auraSize
     for _, buff in ipairs(buffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, buff.name, buff.index, buff.texture, buff.stacks, buff.type, xOffset, -yOffset, "Buff", auraSize)
+        self:CreateAura(aura, buff, xOffset, -yOffset, "Buff", auraSize)
         xOffset = xOffset + auraSize + spacing
     end
     xOffset = 0
     for _, debuff in ipairs(debuffs) do
         local aura = self:GetUnusedAura()
-        self:CreateAura(aura, debuff.name, debuff.index, debuff.texture, debuff.stacks, debuff.type, xOffset, -yOffset, "Debuff", auraSize)
+        self:CreateAura(aura, debuff, xOffset, -yOffset, "Debuff", auraSize)
         xOffset = xOffset - auraSize - spacing
     end
     compost:Reclaim(buffs)
     compost:Reclaim(debuffs)
     compost:Reclaim(typedDebuffs)
+    Puppeteer.EndTiming("UFUpdateAuras")
 end
 
 function PTUnitFrame:ApplyAuraTooltip(auraFrame)
     local index = auraFrame.auraIndex
     local type = auraFrame.auraType
+    local auraData = auraFrame.auraData
 
     local tooltip = AuraTooltip
     local cache = self:GetCache()
     tooltip:SetOwner(auraFrame, "ANCHOR_BOTTOMLEFT")
     local unit = self:GetResolvedUnit()
-    local auraData = (type == "Buff" and cache.Buffs or cache.Debuffs)[index]
     if auraData then
         if type == "Buff" then
             tooltip:SetUnitBuff(unit, index)
         else
             tooltip:SetUnitDebuff(unit, index)
         end
-        local auraTime = cache.AuraTimes[auraData.name]
+        local auraTime = auraData.time
         if auraTime then
             local seconds = math.floor(auraTime.startTime - GetTime() + auraTime.duration)
             local time
@@ -1113,6 +1150,9 @@ function PTUnitFrame:ApplyAuraTooltip(auraFrame)
             end
             if auraTime.ownerName and seconds > -10 then
                 tooltip:AddDoubleLine(string.format(format, time), "Caster: "..auraTime.ownerName)
+                --if not auraTime.nampower then
+                --    tooltip:AddLine("Not From Nampower")
+                --end
             else
                 tooltip:AddLine(string.format(format, time))
             end
@@ -1141,72 +1181,89 @@ local debuffTypeBorderColors = {
     ["Poison"] = {0.0, 0.6, 0},
     ["Other"] = {1, 0, 0}
 }
-function PTUnitFrame:CreateAura(aura, name, index, texturePath, stacks, auraType, xOffset, yOffset, type, size)
-    local frame = aura.frame
+local selfBorderedBuffs = util.ToSet({
+    "Renew",
+    "Greater Heal",
+    "Rejuvenation",
+    "Regrowth",
+    "Blessing of Sacrifice", "Hand of Sacrifice"
+})
+function PTUnitFrame:CreateAura(component, aura, xOffset, yOffset, type, size)
+    local stacks = aura.stacks
+    local name = aura.name
+    local frame = component.frame
     frame:SetWidth(size)
     frame:SetHeight(size)
     frame:SetPoint(type == "Buff" and "TOPLEFT" or "TOPRIGHT", xOffset, yOffset)
     frame:Show()
     frame.unitFrame = self
-    frame.aura = aura
-    frame.auraIndex = index
+    frame.aura = component
+    frame.auraData = aura
+    frame.auraIndex = aura.index
     frame.auraType = type
 
-    local icon = aura.icon
+    local icon = component.icon
     icon:SetAllPoints(frame)
-    icon:SetTexture(texturePath)
+    icon:SetTexture(aura.texture)
 
-    local button = aura.button
+    local button = component.button
     button:SetAllPoints(frame)
 
-    if aura.durationEnabled then
-        local overlay = aura.overlay
+    if util.IsSuperWowPresent() then
+        local overlay = component.overlay
         overlay:SetAllPoints()
 
-        local duration = aura.duration
+        local duration = component.duration
         duration:SetAllPoints()
         duration:SetScale(size * 0.0275)
     end
     
     if stacks > 1 then
-        local stackText = aura.stackText
+        local stackText = component.stackText
         stackText:SetPoint("CENTER", frame, "CENTER", 0, 0)
         stackText:SetFont("Fonts\\FRIZQT__.TTF", math.ceil(size * (stacks < 10 and 0.75 or 0.6)))
         stackText:SetText(stacks)
     end
 
     if type == "Buff" then
-        aura.border:Hide()
+        if selfBorderedBuffs[aura.name] and aura.time and UnitIsUnit(aura.time.owner, "player") then
+            local border = component.border
+            border:Show()
+            border:SetVertexColor(1, 1, 0)
+        else
+            component.border:Hide()
+        end
     else
-        local border = aura.border
+        local border = component.border
         border:Show()
-        local color = debuffTypeBorderColors[auraType] or debuffTypeBorderColors["Other"]
-        border:SetVertexColor(color[1], color[2], color[3])
+        local color = debuffTypeBorderColors[aura.type] or debuffTypeBorderColors["Other"]
+        if aura.time and UnitIsUnit(aura.time.owner, "player") and self:IsEnemy() then
+            border:SetVertexColor(1, 1, 0)
+        else
+            border:SetVertexColor(color[1], color[2], color[3])
+        end
     end
 
-    if aura.durationEnabled then
-        local cache = self:GetCache()
-        if cache.AuraTimes[name] then
-            local debuffTime = cache.AuraTimes[name]
-            local start = debuffTime["startTime"]
-            local duration = debuffTime["duration"]
-            if start + duration + 4 > GetTime() then -- Don't display duration if the predicted time has lapsed
-                local durationUI = aura.duration
+    if aura.time then
+        local startTime = aura.time.startTime
+        local endTime = aura.time.endTime
+        local duration = aura.time.duration
+        if endTime - GetTime() > -4 then -- Don't display duration if the predicted time has lapsed
+            local durationUI = component.duration
 
-                CooldownFrame_SetTimer(durationUI, start, duration, 1)
+            CooldownFrame_SetTimer(durationUI, startTime, duration, 1)
 
-                if duration < 60 then
-                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Short
-                elseif duration <= 60 * 2 then
-                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Medium
-                else
-                    durationUI.displayAt = PTOptions.ShowAuraTimesAt.Long
-                end
-
-                -- To prevent having a frame where the duration is not updated
-                aura.durationText:SetSeconds(nil)
-                util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
+            if duration < 60 then
+                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Short
+            elseif duration <= 60 * 2 then
+                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Medium
+            else
+                durationUI.displayAt = PTOptions.ShowAuraTimesAt.Long
             end
+
+            -- To prevent having a frame where the duration is not updated
+            component.durationText:SetSeconds(nil)
+            util.CallWithThis(durationUI, durationUI:GetScript("OnUpdateModel"))
         end
     end
 end
@@ -1580,6 +1637,10 @@ end
 
 function PTUnitFrame:GetAfflictedDebuffTypes()
     return self:GetCache().AfflictedDebuffTypes
+end
+
+function PTUnitFrame:GetTrackedDebuffTypes()
+    return self:GetCache().TrackedDebuffTypes
 end
 
 function PTUnitFrame:GetWidth()

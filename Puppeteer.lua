@@ -223,6 +223,11 @@ function OnAddonLoaded()
     InitOverrideBindingsMapping()
     InitBindingDisplayCache()
 
+    if util.HasModVersion("Nampower", util.Nampower_v3_0) then
+        SetCVar("NP_EnableAuraCastEvents", 1)
+        SetCVar("NP_EnableSpellHealEvents", 1)
+    end
+
     if util.IsSuperWowPresent() then
         -- In case other addons override unit functions, we want to make sure we're using their functions
         PTUnitProxy.CreateUnitProxies()
