@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Version: 1.1.0
+## Version: 1.1.1
 ## Title: Puppeteer
 ## Notes: Unit frames addon tailored for healers
 ## Author: OldManAlpha, Richard Truax(i2ichardt)
