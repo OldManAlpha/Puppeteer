@@ -683,7 +683,7 @@ function CreateTab_Options_Mods(panel)
 
     -- UnitXP SP3
 
-    local unitXPLabel = CreateLabel(container, "UnitXP SP3")
+    local unitXPLabel = CreateLabel(container, colorize("UnitXP SP3", modColors["UnitXP SP3"]))
         :SetPoint("TOP", setMouseoverCheckbox, "BOTTOM", 0, -20)
         :SetFontSize(14)
     local unitXPDetectedLabel = CreateLabel(container, detectedLabelTexts["UnitXP SP3"])
@@ -719,7 +719,7 @@ function CreateTab_Options_Mods(panel)
         :SetJustifyH("LEFT")
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", nampowerDetectedLabel, "BOTTOM", 0, -10)
-    local nampowerLink = CreateLinkEditbox(container, "https://github.com/pepopo978/nampower")
+    local nampowerLink = CreateLinkEditbox(container, "https://gitea.com/avitasia/nampower")
         :SetPoint("TOP", nampowerInfo, "BOTTOM", 0, -5)
         :SetSize(300, 20)
     local nampowerLinkLabel = CreateLabel(container, "Link:")
