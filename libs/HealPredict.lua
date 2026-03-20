@@ -43,7 +43,7 @@ PTLocale.Keys(ResurrectionSpells)
 
 local TRACKED_HOTS = PTUtil.ToSet({
     "Rejuvenation", "Regrowth", -- Druid
-    "Renew", -- Priest
+    "Renew", "Greater Heal", -- Priest
     "Mend Pet", -- Hunter
     "First Aid" -- Generic
 })
@@ -173,7 +173,7 @@ function RemoveAllCastIcons()
         for _, icon in ipairs(castIcons[caster]) do
             icon:End(false)
         end
-        compost:Recycle(icons)
+        compost:Reclaim(icons)
         castIcons[caster] = nil
     end
 end
@@ -199,27 +199,6 @@ function AddIncomingCast(target, caster, spellID, healAmount, castTime, multi)
     )
 
     UpdateTarget(target)
-
-
-    if PuppeteerSettings.IsExperimentEnabled("CastIcons") then
-        local spellName, _, tex = SpellInfo(spellID)
-        local targetFrame
-        for f in Puppeteer.UnitFrames(target) do
-            if f.owningGroup:GetContainer():IsShown() then
-                targetFrame = f
-                break
-            end
-        end
-        if not targetFrame then
-            return
-        end
-        local icon = PTGuiLib.Get("puppeteer_cast_icon")
-        icon:Start(spellName, tex, castTime / 1000, caster, healAmount, targetFrame)
-        if not castIcons[caster] then
-            castIcons[caster] = compost:GetTable()
-        end
-        table.insert(castIcons[caster], icon)
-    end
 end
 
 function RemoveIncomingCast(caster, successful)
@@ -234,14 +213,6 @@ function RemoveIncomingCast(caster, successful)
         compost:Reclaim(cast["targets"])
         compost:Reclaim(cast)
         Casts[caster] = nil
-
-        if castIcons[caster] then
-            for _, icon in ipairs(castIcons[caster]) do
-                icon:End(successful)
-            end
-            compost:Reclaim(castIcons[caster])
-            castIcons[caster] = nil
-        end
     end
 end
 
@@ -504,7 +475,9 @@ eventFrame:SetScript("OnEvent", function()
                 local _, guid = UnitExists(petUnit)
                 target = guid
             end
-            AddHot(target, caster, spellID, spellName, GetExpectedHeal(UnitName(caster), spellID.."-HoT"))
+            if spellName ~= "Greater Heal" or spellID == 22009 then
+                AddHot(target, caster, spellID, spellName, GetExpectedHeal(UnitName(caster), spellID.."-HoT"))
+            end
         end
     end
 
@@ -522,19 +495,85 @@ eventFrame:SetScript("OnEvent", function()
         end
     end
 
-    if event == "START" then
-        if target and target ~= "" and UnitCanAssist(caster, target) and duration > 0 then
-            local casterName = UnitName(caster)
-            local expectedHeal = GetExpectedHeal(casterName, spellID)
-            AddIncomingCast(target, caster, spellID, expectedHeal, duration)
-        elseif PRAYER_OF_HEALING_IDS[spellID] then
-            local inRange = PTUtil.GetSurroundingPartyMembers(caster)
-            local casterName = UnitName(caster)
-            local expectedHeal = GetExpectedHeal(casterName, spellID)
-            AddIncomingMultiCast(inRange, caster, spellID, expectedHeal, duration)
+    if event == "START" and target then
+        if UnitCanAssist(caster, target ~= "" and target or caster) and duration > 0 then
+            if PRAYER_OF_HEALING_IDS[spellID] then
+                local inRange = PTUtil.GetSurroundingPartyMembers(target ~= "" and target or caster)
+                local casterName = UnitName(caster)
+                local expectedHeal = GetExpectedHeal(casterName, spellID)
+                AddIncomingMultiCast(inRange, caster, spellID, expectedHeal, duration)
+            elseif target ~= "" then
+                local casterName = UnitName(caster)
+                local expectedHeal = GetExpectedHeal(casterName, spellID)
+                AddIncomingCast(target, caster, spellID, expectedHeal, duration)
+            end
         end
     end
 end)
+
+local trackedHostileSpells = PTUtil.ToSet({"Shackle Undead", "Mind Control", "Fear", "Polymorph", "Polymorph: Turtle", "Polymorph: Cow"})
+local castIconFrame = CreateFrame("Frame", "PTCastIcons")
+castIconFrame:RegisterEvent("UNIT_CASTEVENT")
+castIconFrame:SetScript("OnEvent", function()
+    local caster, target, event, spellID, duration = arg1, arg2, arg3, arg4, arg5
+
+    local spellName = SpellInfo(spellID)
+    if event == "CAST" then
+        if castIcons[caster] and castIcons[caster][1].spellName == spellName then
+            for _, icon in ipairs(castIcons[caster]) do
+                icon:End(true)
+            end
+            compost:Reclaim(castIcons[caster])
+            castIcons[caster] = nil
+        end
+    end
+    if event == "START" or event == "FAIL" then
+        if spellName ~= autoShotName then -- Don't remove the cast when Auto Shot fails
+            if castIcons[caster] then
+                for _, icon in ipairs(castIcons[caster]) do
+                    icon:End(false)
+                end
+                compost:Reclaim(castIcons[caster])
+                castIcons[caster] = nil
+            end
+        end
+    end
+
+    if event == "START" then
+        if not PuppeteerSettings.IsExperimentEnabled("CastIcons") or (not UnitCanAssist(caster, target) 
+                and not trackedHostileSpells[spellName] and not PRAYER_OF_HEALING_IDS[spellID]) then
+            return
+        end
+        local inRange
+        if PRAYER_OF_HEALING_IDS[spellID] then
+            inRange = PTUtil.GetSurroundingPartyMembers(target ~= "" and target or caster)
+        end
+        inRange = inRange or compost:Acquire(target)
+        
+        for _, target in ipairs(inRange) do
+            local spellName, _, tex = SpellInfo(spellID)
+            local targetFrame
+            for f in Puppeteer.UnitFrames(target) do
+                if f.owningGroup:GetContainer():IsShown() then
+                    targetFrame = f
+                    break
+                end
+            end
+            if targetFrame then
+                local icon = PTGuiLib.Get("puppeteer_cast_icon")
+                local healAmount = UnitCanAssist(caster, target) and GetExpectedHeal(UnitName(caster), spellID) or 0
+                icon:Start(spellName, tex, duration / 1000, caster, healAmount, targetFrame)
+                if not castIcons[caster] then
+                    castIcons[caster] = compost:GetTable()
+                end
+                table.insert(castIcons[caster], icon)
+            end
+        end
+        compost:Reclaim(inRange)
+    end
+end)
+
+
 -- Because the prediction code is not currently bullet-proof to infinite incoming heals, we're checking once a while for old casts
 local GARBAGE_CHECK_INTERVAL = 10
 local nextGarbageCheck = GetTime() + GARBAGE_CHECK_INTERVAL
@@ -579,6 +618,17 @@ eventFrame:SetScript("OnUpdate", function()
             end
             if not ResurrectionTargets[target] then -- Must've been removed
                 compost:Reclaim(resses)
+            end
+        end
+
+        for caster, icons in pairs(castIcons) do
+            local icon = icons[1]
+            if icon:GetOvertime() > 10 then
+                for _, icon in ipairs(castIcons[caster]) do
+                    icon:End(false)
+                end
+                compost:Reclaim(castIcons[caster])
+                castIcons[caster] = nil
             end
         end
     end

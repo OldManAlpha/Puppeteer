@@ -180,12 +180,13 @@ function CreateUnitFrameGroup(groupName, environment, units, petGroup, profile, 
         end
         table.insert(PTUnitFrames[unit], ui)
         table.insert(AllUnitFrames, ui)
-        uiGroup:AddUI(ui)
+        uiGroup:AddUI(ui, true)
         if unit ~= "target" then
             ui:Hide()
         end
     end
     UnitFrameGroups[groupName] = uiGroup
+    uiGroup:UpdateUIPositions()
     return uiGroup
 end
 
@@ -221,6 +222,11 @@ function OnAddonLoaded()
 
     InitOverrideBindingsMapping()
     InitBindingDisplayCache()
+
+    if util.HasModVersion("Nampower", util.Nampower_v3_0) then
+        SetCVar("NP_EnableAuraCastEvents", 1)
+        SetCVar("NP_EnableSpellHealEvents", 1)
+    end
 
     if util.IsSuperWowPresent() then
         -- In case other addons override unit functions, we want to make sure we're using their functions
@@ -368,6 +374,8 @@ function OnAddonLoaded()
     InitRoleDropdown()
     
     SetLFTAutoRoleEnabled(PTOptions.LFTAutoRole)
+
+    SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow)
 
     if util.IsSuperWowPresent() then
         SetEnemyTrackingEnabled(PuppeteerSettings.IsExperimentEnabled("Enemy"))

@@ -98,6 +98,11 @@ function cmatch(str, pat)
   return ra, rb, rc, rd, re
 end
 
+-- pfQuest
+function modulo(val, by)
+  return val - math.floor(val/by)*by;
+end
+
 
 -- Modified serialization and compression functions from pfUI/modules/share.lua
 

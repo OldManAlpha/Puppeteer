@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Version: 1.1.0
+## Version: 1.1.1
 ## Title: Puppeteer
 ## Notes: Unit frames addon tailored for healers
 ## Author: OldManAlpha, Richard Truax(i2ichardt)
@@ -55,6 +55,8 @@ libs\gui\component\ColorSelect.lua
 libs\gui\frame\TabFrame.lua
 libs\gui\frame\SimpleDialog.lua
 
+gui\component\uf\Arrow.lua
+
 Puppeteer.lua
 core\SpellsTooltip.lua
 core\EventHandler.lua
@@ -84,7 +86,8 @@ gui\component\NewLoadout.lua
 gui\component\LoadScriptEditor.lua
 gui\Settings.lua
 
-CastIcon.lua
+gui\component\uf\CastIcon.lua
+gui\component\uf\HighlightBorder.lua
 
 libs\GuidRoster.lua
 libs\AuraTracker.lua

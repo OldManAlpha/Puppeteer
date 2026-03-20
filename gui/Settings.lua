@@ -516,6 +516,9 @@ function CreateTab_Options_Other(panel)
     factory:checkbox("Show Heal Predictions", {"See predictions on incoming healing", "Improved predictions if using SuperWoW"},
         "UseHealPredictions", function() Puppeteer.UpdateAllIncomingHealing() end)
 
+    factory:checkbox("Out of Range Arrow", {"See an arrow when hovering over an out of range player"}, 
+        "OutOfRangeArrow", function() Puppeteer.SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow) end)
+
     factory:checkbox("(TWoW) LFT Auto Role", {"Automatically assign roles when joining LFT groups", 
             "This functionality was tested for 1.18.0 and may break in future updates"}, "LFTAutoRole",
             function() Puppeteer.SetLFTAutoRoleEnabled(PTOptions.LFTAutoRole) end)
@@ -631,21 +634,29 @@ function CreateTab_Options_Mods(panel)
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", container, "TOP", 0, -10)
 
-    local superWowDetected = util.IsSuperWowPresent()
-    local unitXPDetected = util.IsUnitXPSP3Present()
-    local nampowerDetected = util.IsNampowerPresent()
-
-    local detectedTexts = {
-        [true] = colorize("Mod Detected", 0.2, 1, 0.2),
-        [false] = colorize("Mod Not Detected", 1, 0.2, 0.2)
+    local modColors = {
+        ["SuperWoW"] = {1, 0.4, 0.4},
+        ["UnitXP SP3"] = {0.4, 0.4, 1},
+        ["Nampower"] = {0.4, 1, 0.4},
+        ["VanillaUtils"] = {1, 1, 1}
     }
-    local superWowLabel = CreateLabel(container, "SuperWoW")
+    local detectedTexts = {
+        ["Detected"] = colorize("Mod Detected", 0.2, 1, 0.2).." - %s",
+        ["Not Detected"] = colorize("Mod Not Detected", 1, 0.2, 0.2),
+        ["Outdated"] = colorize("Mod Detected (Out of Date)", 1, 1, 0).." - %s"
+    }
+    local detectedLabelTexts = {}
+    for _, mod in ipairs({"SuperWoW", "UnitXP SP3", "Nampower"}) do
+        detectedLabelTexts[mod] = string.format(detectedTexts[util.GetModVersionState(mod)], util.GetModVersionText(mod))
+    end
+    local superWowLabel = CreateLabel(container, colorize("SuperWoW", modColors["SuperWoW"]))
         :SetPoint("TOP", generalInfo, "BOTTOM", 0, -20)
         :SetFontSize(14)
-    local superWowDetectedLabel = CreateLabel(container, detectedTexts[superWowDetected])
+    local superWowDetectedLabel = CreateLabel(container, detectedLabelTexts["SuperWoW"])
         :SetPoint("TOP", superWowLabel, "BOTTOM", 0, -5)
         :SetFontSize(10)
         :SetFontFlags("OUTLINE")
+    
     local superWowInfo = CreateLabel(container, "SuperWoW provides the following enhancements:\n\n"..
         "• Enables tracking of many class buff and debuff timers\n"..
         "• Enhances spell casting by directly casting on targets rather than split-second target switching tricks\n"..
@@ -666,16 +677,16 @@ function CreateTab_Options_Mods(panel)
     local setMouseoverCheckbox = factory:checkbox("Set Mouseover", {"Requires SuperWoW Mod To Work", 
         "If enabled, hovering over frames will set your mouseover target"}, "SetMouseover")
         :SetPoint("TOP", superWowLink, "BOTTOM", 0, -10)
-    if not superWowDetected then
+    if not util.IsSuperWowPresent() then
         setMouseoverCheckbox:Disable()
     end
 
     -- UnitXP SP3
 
-    local unitXPLabel = CreateLabel(container, "UnitXP SP3")
+    local unitXPLabel = CreateLabel(container, colorize("UnitXP SP3", modColors["UnitXP SP3"]))
         :SetPoint("TOP", setMouseoverCheckbox, "BOTTOM", 0, -20)
         :SetFontSize(14)
-    local unitXPDetectedLabel = CreateLabel(container, detectedTexts[unitXPDetected])
+    local unitXPDetectedLabel = CreateLabel(container, detectedLabelTexts["UnitXP SP3"])
         :SetPoint("TOP", unitXPLabel, "BOTTOM", 0, -5)
         :SetFontSize(10)
         :SetFontFlags("OUTLINE")
@@ -694,25 +705,51 @@ function CreateTab_Options_Mods(panel)
 
     -- Nampower
 
-    local nampowerLabel = CreateLabel(container, "Nampower")
+    local nampowerLabel = CreateLabel(container, colorize("Nampower", modColors["Nampower"]))
         :SetPoint("TOP", unitXPLink, "BOTTOM", 0, -20)
         :SetFontSize(14)
-    local nampowerDetectedLabel = CreateLabel(container, detectedTexts[nampowerDetected])
+    local nampowerDetectedLabel = CreateLabel(container, detectedLabelTexts["Nampower"])
         :SetPoint("TOP", nampowerLabel, "BOTTOM", 0, -5)
         :SetFontSize(10)
         :SetFontFlags("OUTLINE")
     
     local nampowerInfo = CreateLabel(container, "Nampower provides the following enhancements:\n\n"..
-        "• Allows you to queue spell casts like in modern versions of WoW, drastically increasing casting efficiency")
+        "• Allows you to queue spell casts like in modern versions of WoW, drastically increasing casting efficiency\n"..
+        "• (Newer Versions) Enables tracking of additional buff/debuff timers")
         :SetJustifyH("LEFT")
         :SetWidth(TEXT_WIDTH)
         :SetPoint("TOP", nampowerDetectedLabel, "BOTTOM", 0, -10)
-    local nampowerLink = CreateLinkEditbox(container, "https://github.com/pepopo978/nampower")
+    local nampowerLink = CreateLinkEditbox(container, "https://gitea.com/avitasia/nampower")
         :SetPoint("TOP", nampowerInfo, "BOTTOM", 0, -5)
         :SetSize(300, 20)
     local nampowerLinkLabel = CreateLabel(container, "Link:")
         :SetPoint("RIGHT", nampowerLink, "LEFT", -5, 0)
     
+    
+    -- local modFeaturesLabel = CreateLabel(container, "Mod Enhancements")
+    --     :SetPoint("TOP", nampowerLink, "BOTTOM", 0, -25)
+    --     :SetFontSize(14)
+    -- local lastLabel = modFeaturesLabel
+    -- for _, feature in ipairs(util.ModFeatures) do
+    --     if not feature.Hidden then
+    --         local modPrefix = ""
+    --         for _, provider in ipairs(feature.Providers) do
+    --             if string.len(modPrefix) > 0 then
+    --                 modPrefix = modPrefix.." or "
+    --             end
+    --             modPrefix = modPrefix..colorize(provider[1], modColors[provider[1]])
+    --         end
+    --         local desc = feature.Description
+    --         if not feature.ChosenProvider then
+    --             desc = colorize(desc, 0.5, 0.5, 0.5)
+    --         end
+    --         local label = CreateLabel(container, "• ["..modPrefix.."] "..desc)
+    --             :SetJustifyH("LEFT")
+    --             :SetWidth(TEXT_WIDTH)
+    --             :SetPoint("TOP", lastLabel, "BOTTOM", 0, -8)
+    --         lastLabel = label
+    --     end
+    -- end
 
     
     scrollFrame:UpdateScrollRange()

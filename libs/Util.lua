@@ -19,11 +19,13 @@ UnitXPSP3_Version = -1
 if UnitXPSP3 and pcall(UnitXP, "version", "coffTimeDateStamp") then
     UnitXPSP3_Version = UnitXP("version", "coffTimeDateStamp") or -1
 end
+UnitXPSP3Latest = 0
 SuperWoW = SpellInfo ~= nil
 SuperWoWFeatureLevel = 0
 SuperWoW_v1_2 = 1
 SuperWoW_v1_3 = 2
 SuperWoW_v1_4 = 3
+SuperWoWLatest = SuperWoW_v1_4
 if SUPERWOW_VERSION then
     if SUPERWOW_VERSION == "1.2" then
         SuperWoWFeatureLevel = SuperWoW_v1_2
@@ -34,6 +36,195 @@ if SUPERWOW_VERSION then
     end
 end
 Nampower = QueueSpellByName ~= nil
+NampowerFeatureLevel = 0
+Nampower_v3_0 = 1
+NampowerLatest = Nampower_v3_0
+if GetNampowerVersion then
+    local major, minor, patch = GetNampowerVersion()
+    if major >= 3 then
+        NampowerFeatureLevel = Nampower_v3_0
+    end
+end
+VanillaUtils = pcall(UnitXP, "unitPosition", "player")
+
+EnabledMods = {
+    ["SuperWoW"] = SuperWoW and SuperWoWFeatureLevel,
+    ["Nampower"] = Nampower and NampowerFeatureLevel,
+    ["UnitXP SP3"] = UnitXPSP3 and 0,
+    ["VanillaUtils"] = VanillaUtils and 0
+}
+
+-- Providers are ordered by preference
+ModFeatures = {
+    {
+        Name = "GUID Units",
+        Description = "Better tracking of players/mobs. Grants the ability to add players/mobs to a separate Focus frame.",
+        Providers = {{"Nampower", Nampower_v3_0}, {"SuperWoW"}}
+    },
+    {
+        Name = "Aura Timers",
+        Description = "See timers on buffs and debuffs, with Nampower providing many more than SuperWoW.",
+        Providers = {{"Nampower", Nampower_v3_0}, {"SuperWoW"}}
+    },
+    {
+        Name = "Friendly Distance",
+        Description = "See precise distance to friendly players, with UnitXP SP3 being more accurate.",
+        Providers = {{"UnitXP SP3"}, {"SuperWoW"}}
+    },
+    {
+        Name = "Enemy Distance",
+        Description = "See precise distance to enemies.",
+        Providers = {{"UnitXP SP3"}}
+    },
+    {
+        Name = "Friendly Position",
+        Hidden = true,
+        Providers = {{"SuperWoW"}, {"VanillaUtils"}}
+    },
+    {
+        Name = "Enemy Position",
+        Hidden = true,
+        Providers = {{"VanillaUtils"}}
+    },
+    {
+        Name = "Heal Predictions",
+        Description = "See incoming healing from players that do not have HealComm and predict more accurate numbers.",
+        Providers = {{"Nampower", Nampower_v3_0}, {"SuperWoW"}}
+    },
+    {
+        Name = "Mouseover",
+        Description = "Set your actual mouseover target when hovering over unit frames.",
+        Providers = {{"SuperWoW"}}
+    },
+    {
+        Name = "Direct Casting",
+        Description = "Directly cast spells rather than using split-second target switching tricks.",
+        Providers = {{"Nampower", Nampower_v3_0}, {"SuperWoW"}}
+    },
+    {
+        Name = "LOS",
+        Description = "See when someone is out of your line-of-sight.",
+        Providers = {{"UnitXP SP3"}}
+    },
+    {
+        Name = "Spell Queue",
+        Description = "Queue spell casts like in modern versions of WoW, drastically increasing casting efficiency.",
+        Providers = {{"Nampower"}}
+    }
+}
+EnabledModFeatures = {}
+for _, feature in ipairs(ModFeatures) do
+    for _, providerEntry in ipairs(feature.Providers) do
+        local modInfo = EnabledMods[providerEntry[1]]
+        if modInfo and (not providerEntry[2] or modInfo >= providerEntry[2]) then
+            feature.ChosenProvider = providerEntry[1]
+            EnabledModFeatures[feature.Name] = providerEntry[1]
+            break
+        end
+    end
+end
+
+function GetModState(present, upToDate)
+    if not present then
+        return "Not Detected"
+    end
+    if not upToDate then
+        return "Outdated"
+    end
+    return "Detected"
+end
+
+function IsSuperWowPresent()
+    return SuperWoW
+end
+
+function GetSuperWoWVersionText()
+    if not SuperWoW then
+        return ""
+    end
+    return "Version "..(SUPERWOW_VERSION or "1.1 or older")
+end
+
+function IsSuperWoWUpToDate()
+    return SuperWoWFeatureLevel >= SuperWoWLatest
+end
+
+function GetSuperWoWVersionState()
+    return GetModState(IsSuperWowPresent(), IsSuperWoWUpToDate())
+end
+
+function IsUnitXPSP3Present()
+    return UnitXPSP3
+end
+
+function GetUnitXPSP3VersionText()
+    if not UnitXPSP3 then
+        return ""
+    end
+    return UnitXPSP3_Version > -1 and "Version "..date("%x", UnitXPSP3_Version) or "Old Version"
+end
+
+function IsUnitXPSP3UpToDate()
+    return UnitXPSP3_Version >= UnitXPSP3Latest
+end
+
+function GetUnitXPSP3VersionState()
+    return GetModState(IsUnitXPSP3Present(), IsUnitXPSP3UpToDate())
+end
+
+-- Doesn't detect Namreeb's Nampower
+function IsNampowerPresent()
+    return Nampower
+end
+
+function GetNampowerVersionText()
+    if not Nampower then
+        return ""
+    end
+    if not GetNampowerVersion then
+        return "Old Version"
+    end
+    local major, minor, patch = GetNampowerVersion()
+    return "Version "..major.."."..minor.."."..patch
+end
+
+function IsNampowerUpToDate()
+    return NampowerFeatureLevel >= NampowerLatest
+end
+
+function GetNampowerVersionState()
+    return GetModState(IsNampowerPresent(), IsNampowerUpToDate())
+end
+
+function GetModVersionText(mod)
+    if mod == "SuperWoW" then
+        return GetSuperWoWVersionText()
+    elseif mod == "UnitXP SP3" then
+        return GetUnitXPSP3VersionText()
+    elseif mod == "Nampower" then
+        return GetNampowerVersionText()
+    elseif mod == "VanillaUtils" then
+        return "Unknown"
+    end
+    return "Invalid Mod: "..tostring(mod)
+end
+
+function GetModVersionState(mod)
+    if mod == "SuperWoW" then
+        return GetSuperWoWVersionState()
+    elseif mod == "UnitXP SP3" then
+        return GetUnitXPSP3VersionState()
+    elseif mod == "Nampower" then
+        return GetNampowerVersionState()
+    elseif mod == "VanillaUtils" then
+        return GetModState(true, true)
+    end
+    return "Invalid Mod: "..tostring(mod)
+end
+
+function HasModVersion(mod, version)
+    return EnabledMods[mod] and EnabledMods[mod] >= version
+end
 
 TurtleWow = TURTLE_WOW_VERSION ~= nil
 
@@ -645,6 +836,18 @@ function GetResourceCost(spellName)
     return 0
 end
 
+if HasModVersion("Nampower", Nampower_v3_0) then
+    function GetResourceCost(spellName)
+        local spellID = GetSpellIdForName(spellName)
+        local cost = GetSpellRecField(spellID, "manaCost")
+        local powerType = GetSpellRecField(spellID, "powerType")
+        if powerType == 1 then -- Rage is 10x for some reason
+            cost = cost / 10
+        end
+        return cost or "unknown", PowerTypeMap[powerType]
+    end
+end
+
 -- Returns the aura's name and its school type
 function ScanAuraInfo(unit, index, type)
     -- Make these texts blank since they don't clear otherwise
@@ -884,6 +1087,7 @@ local offTaskQueue = {}
 local PTTaskExecutor_OnUpdate = function()
     local runningQueue = taskQueue
     taskQueue = offTaskQueue
+    offTaskQueue = runningQueue
     for _, task in ipairs(runningQueue) do
         local ok, result = pcall(task)
         if not ok then
@@ -1295,6 +1499,18 @@ function CanClientGetPreciseDistance(alsoEnemies)
     return UnitXPSP3 or (SuperWoW and not alsoEnemies)
 end
 
+function GetUnitPosition(unit)
+    return nil
+end
+
+if VanillaUtils then
+    GetUnitPosition = function(unit)
+        return UnitXP("unitPosition", unit)
+    end
+elseif SuperWoW then
+    GetUnitPosition = UnitPosition
+end
+
 -- Returns whether unit is in sight if UnitXP SP3 is present, otherwise always true.
 IsInSight = function()
     return true
@@ -1317,21 +1533,55 @@ function CanClientSightCheck()
     return UnitXPSP3
 end
 
+-- From pfQuest
+local minimaparrow = ({Minimap:GetChildren()})[9]
+for k, v in pairs({Minimap:GetChildren()}) do
+    if v:IsObjectType("Model") and not v:GetName() then
+        if string.find(strlower(v:GetModel()), "interface\\minimap\\minimaparrow") then
+        minimaparrow = v
+        break
+        end
+    end
+end
+function GetPlayerFacing()
+    return minimaparrow:GetFacing()
+end
+
+function GetUnitDirection(from, to)
+    local sx, sz = GetUnitPosition(from)
+    local tx, tz = GetUnitPosition(to)
+
+    local dx = tx - sx
+    local dz = tz - sz
+
+    return math.atan2(dz, dx)
+end
+
+function GetFacingAngle(unit)
+    local angle = GetUnitDirection("player", unit) - GetPlayerFacing()
+    angle = modulo(angle, math.pi * 2)
+    return angle
+end
+
+if VanillaUtils then
+    function GetCameraFacing()
+        local sx, sy = GetUnitPosition("player")
+        local cx, cy = UnitXP("cameraPosition")
+        return math.atan2(cy - sy, cx - sx) + math.pi
+    end
+else
+    GetCameraFacing = GetPlayerFacing -- Sad
+end
+
+function GetCameraFacingAngle(unit)
+    local cameraAngle = GetUnitDirection("player", unit) - GetCameraFacing()
+    cameraAngle = modulo(cameraAngle, math.pi * 2)
+    return cameraAngle
+end
+
+
 function CanClientGetAuraIDs()
     return SuperWoW-- or TurtleWow -- Turtle ID fetching is not reliable
-end
-
-function IsSuperWowPresent()
-    return SuperWoW
-end
-
-function IsUnitXPSP3Present()
-    return UnitXPSP3
-end
-
--- Only detects Pepopo's Nampower
-function IsNampowerPresent()
-    return Nampower
 end
 
 function IsTurtleWow()

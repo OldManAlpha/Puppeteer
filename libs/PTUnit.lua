@@ -31,11 +31,14 @@ PTUnit.DebuffsMap = {} -- Key: Name | Value: Array of debuffs with key's name
 PTUnit.DebuffsIDSet = {} -- Set of currently applied debuff IDs
 PTUnit.TypedDebuffs = {} -- Key: Type | Value: Array of debuffs that are the type
 PTUnit.AfflictedDebuffTypes = {} -- Set of the afflicted debuff types
+PTUnit.TrackedDebuffTypes = {} -- Set of debuff types that exclude frivilous debuffs
 
 PTUnit.HasHealingModifier = false
+PTUnit.HasImportantDebuff = false
 
 -- Only used with SuperWoW, managed in AuraTracker.lua
 PTUnit.AuraTimes = {} -- Key: Aura Name | Value: {"startTime", "duration"}
+PTUnit.AuraTimesByName = {}
 
 PTUnit.DisplayPVP = false -- This is not the real PVP status of the unit, this is affected by other conditions
 
@@ -114,6 +117,7 @@ function PTUnit:New(unit)
     obj.IsSelf = UnitIsUnit(unit, "player")
     if superwow then
         obj.AuraTimes = compost:GetTable()
+        obj.AuraTimesByName = compost:GetTable()
     end
     obj:UpdateAll()
     return obj
@@ -126,9 +130,11 @@ function PTUnit:Dispose()
     compost:Reclaim(self.Debuffs, 1)
     compost:Reclaim(self.DebuffsMap, 1)
     compost:Reclaim(self.DebuffsIDSet)
-    compost:Reclaim(self.TypedDebuffs)
+    compost:Reclaim(self.TypedDebuffs, 1)
     compost:Reclaim(self.AfflictedDebuffTypes)
-    compost:Reclaim(self.AuraTimes)
+    compost:Reclaim(self.TrackedDebuffTypes)
+    util.CompostReclaim(self.AuraTimes)
+    compost:Reclaim(self.AuraTimesByName)
 end
 
 function PTUnit:UpdateAll()
@@ -221,6 +227,7 @@ function PTUnit:AllocateAuras()
     self.DebuffsIDSet = compost:GetTable()
     self.TypedDebuffs = compost:GetTable()
     self.AfflictedDebuffTypes = compost:GetTable()
+    self.TrackedDebuffTypes = compost:GetTable()
 end
 
 function PTUnit:ClearAuras()
@@ -233,16 +240,20 @@ function PTUnit:ClearAuras()
     compost:Reclaim(self.Debuffs, 1)
     compost:Reclaim(self.DebuffsMap, 1)
     compost:Erase(self.DebuffsIDSet)
-    compost:Erase(self.TypedDebuffs)
+    compost:Reclaim(self.TypedDebuffs, 1)
     compost:Erase(self.AfflictedDebuffTypes)
+    compost:Erase(self.TrackedDebuffTypes)
     self.Buffs = compost:GetTable()
     self.BuffsMap = compost:GetTable()
     self.Debuffs = compost:GetTable()
     self.DebuffsMap = compost:GetTable()
+    self.TypedDebuffs = compost:GetTable()
     self.HasHealingModifier = false
     self.AurasPopulated = false
+    self.HasImportantDebuff = false
 end
 
+local claimedAuras = {}
 function PTUnit:UpdateAuras()
     local unit = self.Unit
 
@@ -250,15 +261,19 @@ function PTUnit:UpdateAuras()
         return
     end
 
+    Puppeteer.StartTiming("PTUnitAuraUpdate")
+
     self:ClearAuras()
 
     if not UnitExists(unit) then
+        Puppeteer.EndTiming("PTUnitAuraUpdate")
         return
     end
 
     local buffs = self.Buffs
     local buffsMap = self.BuffsMap
     local buffsIDSet = self.BuffsIDSet
+    local time = GetTime()
     for index = 1, 32 do
         local texture, stacks, id = UnitBuff(unit, index)
         if not texture then
@@ -268,7 +283,22 @@ function PTUnit:UpdateAuras()
         if PuppeteerSettings.TrackedHealingBuffs[name] then
             self.HasHealingModifier = true
         end
-        local buff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
+        local auraTime = nil
+        if id and self.AuraTimes[id] then
+            local auraTimes = self.AuraTimes[id]
+            local highestDuration = -100
+            for owner, aura in pairs(auraTimes) do
+                local timeLeft = aura.endTime - time
+                if not claimedAuras[aura] and timeLeft > highestDuration then
+                    auraTime = aura
+                    highestDuration = timeLeft
+                end
+            end
+            if auraTime then
+                claimedAuras[auraTime] = 1
+            end
+        end
+        local buff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id, "time", auraTime)
         if not buffsMap[name] then
             buffsMap[name] = compost:GetTable()
         end
@@ -280,6 +310,7 @@ function PTUnit:UpdateAuras()
     end
 
     local afflictedDebuffTypes = self.AfflictedDebuffTypes
+    local trackedDebuffTypes = self.TrackedDebuffTypes
     local debuffs = self.Debuffs
     local debuffsMap = self.DebuffsMap
     local debuffsIDSet = self.DebuffsIDSet
@@ -294,7 +325,25 @@ function PTUnit:UpdateAuras()
         if PuppeteerSettings.TrackedHealingDebuffs[name] then
             self.HasHealingModifier = true
         end
-        local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id)
+        if PuppeteerSettings.ImportantDebuffs[name] then
+            self.HasImportantDebuff = true
+        end
+        local auraTime = nil
+        if id and self.AuraTimes[id] then
+            local auraTimes = self.AuraTimes[id]
+            local highestDuration = -100
+            for owner, aura in pairs(auraTimes) do
+                local timeLeft = aura.endTime - time
+                if not claimedAuras[aura] and timeLeft > highestDuration then
+                    auraTime = aura
+                    highestDuration = timeLeft
+                end
+            end
+            if auraTime then
+                claimedAuras[auraTime] = 1
+            end
+        end
+        local debuff = compost:AcquireHash("name", name, "index", index, "texture", texture, "stacks", stacks, "type", type, "id", id, "time", auraTime)
         if not debuffsMap[name] then
             debuffsMap[name] = compost:GetTable()
         end
@@ -304,6 +353,9 @@ function PTUnit:UpdateAuras()
         table.insert(debuffsMap[name], debuff)
         if type ~= "" then
             afflictedDebuffTypes[type] = 1
+            if not PuppeteerSettings.IgnoredDispellableDebuffs[name] then
+                trackedDebuffTypes[type] = 1
+            end
             if not typedDebuffs[type] then
                 typedDebuffs[type] = compost:GetTable()
             end
@@ -312,6 +364,8 @@ function PTUnit:UpdateAuras()
         table.insert(debuffs, debuff)
     end
     self.AurasPopulated = true
+    util.ClearTable(claimedAuras)
+    Puppeteer.EndTiming("PTUnitAuraUpdate")
 end
 
 function PTUnit:HasBuff(name)
@@ -352,6 +406,10 @@ function PTUnit:HasDebuffType(type)
     return self.AfflictedDebuffTypes[type]
 end
 
+function PTUnit:HasTrackedDebuffType(type)
+    return self.TrackedDebuffTypes[type]
+end
+
 -- Returns the first buff with the provided name
 function PTUnit:GetBuff(name)
     if not self:HasBuff(name) then
@@ -376,11 +434,40 @@ function PTUnit:GetDebuffs(name)
     return self.DebuffsMap[name]
 end
 
+function PTUnit:ApplyTimedAura(spellName, spellID, owner, duration, isNampower)
+    if not self.AuraTimes[spellID] then
+        self.AuraTimes[spellID] = compost:GetTable()
+    end
+    if not self.AuraTimesByName[spellName] then
+        self.AuraTimesByName[spellName] = compost:GetTable()
+    end
+    duration = duration or 0
+    local time = GetTime()
+    local entry = compost:AcquireHash(
+        "startTime", time,
+        "endTime", time + duration,
+        "duration", duration,
+        "owner", owner,
+        "ownerName", UnitName(owner),
+        "nampower", isNampower ~= nil and isNampower ~= false
+    )
+    if self.AuraTimes[spellID][owner] then
+        compost:Reclaim(self.AuraTimes[spellID][owner])
+    end
+    self.AuraTimes[spellID][owner] = entry
+    self.AuraTimesByName[spellName] = entry
+
+    self:UpdateAuras()
+    for ui in Puppeteer.UnitFrames(self.Unit) do
+        ui:UpdateAuras()
+    end
+end
+
 function PTUnit:GetAuraTimeRemaining(name)
     if not superwow then
         return
     end
-    local auraTime = self.AuraTimes[name]
+    local auraTime = self.AuraTimesByName[name]
     if not auraTime then
         return
     end

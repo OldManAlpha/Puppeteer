@@ -15,10 +15,13 @@ local trackedCastedAuras = {
     ["Thorns"] = 10 * 60,
     ["Abolish Poison"] = 8,
     ["Innervate"] = 20,
+    ["Barkskin"] = 15,
+    ["Barkskin (Feral)"] = 12,
     -- Druid: Offensive
     ["Moonfire"] = 18,
     ["Insect Swarm"] = 18,
     ["Faerie Fire"] = 40,
+    ["Faerie Fire (Feral)"] = 40,
     -- Priest
     ["Power Word: Fortitude"] = 30 * 60,
     ["Divine Spirit"] = 30 * 60,
@@ -51,6 +54,7 @@ local trackedCastedAuras = {
     ["Forbearance"] = 60,
     ["Blessing of Sacrifice"] = 30,
     ["Hand of Sacrifice"] = 30,
+    ["Divine Intervention"] = 3 * 60,
     ["Blessing of Wisdom"] = (turtle and 10 or 5) * 60,
     ["Blessing of Might"] = (turtle and 10 or 5) * 60,
     ["Blessing of Salvation"] = (turtle and 10 or 5) * 60,
@@ -73,7 +77,10 @@ local trackedCastedAuras = {
     ["Mage Armor"] = 30 * 60,
     ["Ice Barrier"] = 60,
     ["Mana Shield"] = 60,
+    ["Fire Ward"] = 30,
+    ["Frost Ward"] = 30,
     ["Ice Block"] = 10,
+    ["Arcane Power"] = 20,
     -- Mage: Offensive
     ["Polymorph"] = 50,
     -- Warlock
@@ -91,6 +98,7 @@ local trackedCastedAuras = {
     -- Rogue
     ["Evasion"] = 15,
     -- Hunter
+    ["Feign Death"] = 6 * 60,
     ["Deterrence"] = 10,
     ["Rapid Fire"] = 15,
     -- Hunter: Offensive
@@ -102,33 +110,43 @@ local trackedCastedAuras = {
     ["Battle Shout"] = 2 * 60,
     ["Shield Wall"] = 10, -- 12 with talent
     ["Last Stand"] = 20,
+    ["Death Wish"] = 30,
     -- Warrior: Offensive
     ["Rend"] = 21,
+    ["Mortal Strike"] = 10,
     -- Racial
     ["Quel'dorei Meditation"] = 5,
     ["Grace of the Sunwell"] = 15,
+    ["Blood Fury"] = 25,
     -- Generic
     ["First Aid"] = 8,
     ["Recently Bandaged"] = 60,
     ["Rapid Healing"] = 15,
     -- Emerald Sanctum
-    ["Call of Nightmare"] = 10
+    ["Call of Nightmare"] = 10,
+    ["Dreamstate"] = 10,
+    -- Naxxramas
+    ["Veil of Darkness"] = 7,
+    -- Misc
+    ["Curse of the Deadwood"] = 2 * 60
 }
 PTLocale.Keys(trackedCastedAuras)
 PuppeteerSettings.TrackedCastedAuras = trackedCastedAuras
 
 -- Auras to start the timer for even though they weren't directly casted
 local additionalAuras = {
-    ["Divine Protection"] = {"Forbearance"},
-    ["Divine Shield"] = {"Forbearance"},
-    ["Blessing of Protection"] = {"Forbearance"},
-    ["Hand of Protection"] = {"Forbearance"},
-    ["First Aid"] = {"Recently Bandaged"},
-    ["Power Word: Shield"] = {"Weakened Soul"}
+    ["Divine Protection"] = {{"Forbearance", 25771}},
+    ["Divine Shield"] = {{"Forbearance", 25771}},
+    ["Blessing of Protection"] = {{"Forbearance", 25771}},
+    ["Hand of Protection"] = {{"Forbearance", 25771}},
+    ["First Aid"] = {{"Recently Bandaged", 11196}},
+    ["Power Word: Shield"] = {{"Weakened Soul", 6788}}
 }
 PTLocale.Keys(additionalAuras)
 for _, array in pairs(additionalAuras) do
-    PTLocale.Array(array)
+    for _, entry in ipairs(array) do
+        entry[1] = PTLocale.T(entry[1])
+    end
 end
 
 -- Value is range
@@ -150,12 +168,10 @@ local aoeClassAuras = PTUtil.ToSet({
 })
 PTLocale.Keys(aoeClassAuras)
 
-local function applyTimedAura(spellName, owner, units)
+local function applyTimedAura(spellName, id, owner, units, duration)
     for _, unit in ipairs(units) do
-        PTUnit.Get(unit).AuraTimes[spellName] = {["startTime"] = GetTime(), ["duration"] = trackedCastedAuras[spellName], 
-            ["owner"] = owner, ["ownerName"] = UnitName(owner)}
-        for ui in Puppeteer.UnitFrames(unit) do
-            ui:UpdateAuras()
+        if PTUnit.Get(unit) then
+            PTUnit.Get(unit):ApplyTimedAura(spellName, id, owner, duration or trackedCastedAuras[spellName], duration ~= nil)
         end
     end
 end
@@ -179,7 +195,7 @@ castEventFrame:SetScript("OnEvent", function()
                 local targets = PTUtil.GetSurroundingPartyMembers(target, aoeAuras[spellName])
                 for _, unit in ipairs(targets) do
                     local units = PTGuidRoster.GetAllUnits(unit)
-                    applyTimedAura(spellName, caster, units)
+                    applyTimedAura(spellName, spellID, caster, units)
                 end
             elseif aoeClassAuras[spellName] then
                 local class = PTUtil.GetClass(target)
@@ -187,18 +203,52 @@ castEventFrame:SetScript("OnEvent", function()
                 for _, unit in ipairs(targets) do
                     if PTUtil.GetClass(unit) == class then
                         local units = PTGuidRoster.GetAllUnits(unit)
-                        applyTimedAura(spellName, caster, units)
+                        applyTimedAura(spellName, spellID, caster, units)
                     end
                 end
             else
-                applyTimedAura(spellName, caster, units)
+                applyTimedAura(spellName, spellID, caster, units)
             end
 
             if additionalAuras[spellName] then
                 for _, aura in ipairs(additionalAuras[spellName]) do
-                    applyTimedAura(aura, caster, units)
+                    applyTimedAura(aura[1], aura[2], caster, units)
                 end
             end
+        end
+    end
+end)
+
+if not PTUtil.HasModVersion("Nampower", PTUtil.Nampower_v3_0) then
+    return
+end
+
+local nampowerAuraFrame = CreateFrame("Frame", "PTNampowerAuras")
+nampowerAuraFrame:RegisterEvent("AURA_CAST_ON_SELF")
+nampowerAuraFrame:RegisterEvent("AURA_CAST_ON_OTHER")
+nampowerAuraFrame:SetScript("OnEvent", function()
+    local spellID, caster, target, _, _, _, _, duration = arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8
+    if not caster or not target then
+        return
+    end
+    if duration <= 0 then
+        return
+    end
+    applyTimedAura(GetSpellRecField(spellID, "name"), spellID, caster, {target}, duration / 1000)
+end)
+
+local inspirationTracker = CreateFrame("Frame", "PTInspirationTracker")
+inspirationTracker:RegisterEvent("SPELL_HEAL_BY_SELF")
+inspirationTracker:RegisterEvent("SPELL_HEAL_BY_OTHER")
+local inspirationProcSpells = PTUtil.ToSet({"Heal", "Greater Heal", "Flash Heal", "Prayer of Healing"})
+inspirationTracker:SetScript("OnEvent", function()
+    local target, caster, spellID, amount, crit, periodic = arg1, arg2, arg3, arg4, arg5, arg6
+
+    local spellName = GetSpellRecField(spellID, "name")
+
+    if crit == 1 and inspirationProcSpells[spellName] then
+        if PTUnit.Get(target) then
+            PTUnit.Get(target):ApplyTimedAura(spellName, 15359, caster, 15, true)
         end
     end
 end)

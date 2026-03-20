@@ -2,6 +2,7 @@
 
 PTCastIcon = PTGuiComponent:Extend("puppeteer_cast_icon")
 local compost = AceLibrary("Compost-2.0")
+local activeIcons = {}
 
 function PTCastIcon:New()
     local obj = setmetatable({}, self)
@@ -74,7 +75,8 @@ end
 local importantCasts = {
     "Soulstone Resurrection",
     "Proclaim Champion",
-    "Revive Champion"
+    "Revive Champion",
+    "Shackle Undead", "Mind Control", "Fear", "Polymorph", "Polymorph: Turtle", "Polymorph: Cow"
 }
 importantCasts = PTUtil.ToSet(importantCasts)
 PTLocale.Keys(importantCasts)
@@ -88,15 +90,18 @@ function PTCastIcon:Start(spellName, spellTexture, time, unit, healAmount, unitF
         Puppeteer.EndTiming("CastIcon")
     end, false)
     self.icon:SetTexture(spellTexture)
+    --Puppeteer.print(spellTexture)
     self.border:SetBackdropBorderColor(PTUtil.GetClassColor(class))
     self.startTime = GetTime()
     self.endTime = self.startTime + time
     self.time = time
+    self.spellName = spellName
     self.class = class
     self.unit = unit
     self.healAmount = healAmount
     self.unitFrame = unitFrame
     self.state = "CASTING"
+    activeIcons[unit] = self
     local isCasterSelf = PTUnitProxy.UnitIsUnit("player", unit)
     local isSelfHealer = Puppeteer.GetUnitAssignedRole("player") == "Healer"
     local shouldBeCenter = isCasterSelf and isSelfHealer
@@ -106,7 +111,7 @@ function PTCastIcon:Start(spellName, spellTexture, time, unit, healAmount, unitF
     local totalHealth = 0
     local totalUnits = 0
     for _, unit in ipairs(group.units) do
-        if PTUnitProxy.UnitExists(unit) then
+        if PTUnitProxy.UnitExists(unit) and PTUnitProxy.UnitIsConnected(unit) then
             totalHealth = totalHealth + PTUnitProxy.UnitHealthMax(unit)
             totalUnits = totalUnits + 1
         end
@@ -167,6 +172,7 @@ function PTCastIcon:End(successful)
     self.overhealIndicator:Hide()
     self.successful = successful
     self.castOrder:Hide()
+    activeIcons[self.unit] = nil
 end
 
 local iconSorter = function(a, b)
@@ -221,3 +227,16 @@ function PTCastIcon:Update()
 end
 
 PTGuiLib.RegisterComponent(PTCastIcon)
+
+local f = CreateFrame("Frame", "PTPushbackTracker")
+f:RegisterEvent("SPELL_DELAYED_SELF")
+f:RegisterEvent("SPELL_DELAYED_OTHER")
+f:SetScript("OnEvent", function()
+    local caster, pushback = arg1, (arg2 / 1000)
+    if activeIcons[caster] then
+        Puppeteer.print("Pushback: "..pushback)
+        local icon = activeIcons[caster]
+        icon.startTime = icon.startTime + pushback
+        icon.endTime = icon.endTime + pushback
+    end
+end)

@@ -409,6 +409,7 @@ function CreateUnitProxies()
     UnitProxy("UnitAffectingCombat", _G.UnitAffectingCombat, false)
     UnitProxy("UnitIsPVP", _G.UnitIsPVP, false)
     UnitProxy("UnitFactionGroup", _G.UnitFactionGroup, nil)
+    UnitProxy("UnitPosition", _G.UnitPosition, 0)
     DoubleUnitProxy("UnitIsFriend", _G.UnitIsFriend, false)
     DoubleUnitProxy("UnitIsEnemy", _G.UnitIsEnemy, false)
     DoubleUnitProxy("UnitIsUnit", _G.UnitIsUnit, false)
@@ -452,12 +453,17 @@ function CreateUnitProxies()
             return UnitXP(a1, a2, a3, a4, a5)
         end
     end)
-    CustomProxy("UnitGUID", function()
-        return function(unit)
-            local _, guid = UnitExists(unit)
-            return guid
-        end
-    end)
+    if _G.GetUnitGUID then
+        UnitProxy("UnitGUID", _G.GetUnitGUID, nil)
+        UnitProxy("GetUnitGUID", _G.GetUnitGUID, nil)
+    else
+        CustomProxy("UnitGUID", function()
+            return function(unit)
+                local _, guid = UnitExists(unit)
+                return guid
+            end
+        end)
+    end
 
     UpdateImports()
 end
