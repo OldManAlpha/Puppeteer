@@ -223,7 +223,7 @@ function GetModVersionState(mod)
 end
 
 function HasModVersion(mod, version)
-    return mod and version >= EnabledMods[mod]
+    return EnabledMods[mod] and EnabledMods[mod] >= version
 end
 
 TurtleWow = TURTLE_WOW_VERSION ~= nil
