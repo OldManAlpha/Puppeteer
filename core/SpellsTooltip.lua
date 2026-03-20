@@ -157,7 +157,7 @@ function _UpdateBindingDisplay(binding, entry)
     local powerType = currentPowerType or util.GetPowerType("player")
     local needsUpdate = not entry.Normal
     local textColor = binding.Tooltip and binding.Tooltip.TextColor or BindTypeTooltipColors[binding.Type]
-    local text = binding.Tooltip and binding.Tooltip.Data
+    local text = binding.Tooltip and binding.Tooltip.Type == "CUSTOM" and binding.Tooltip.Data
     if binding.Type == "SPELL" then
         local spell = binding.Data
         if spell == "" then
