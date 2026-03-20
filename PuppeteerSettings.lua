@@ -374,7 +374,7 @@ DefaultTrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the D
 DefaultTrackedBuffs = {
     "Blessing of Protection", "Hand of Protection", "Divine Protection", "Divine Shield", "Divine Intervention", -- Paladin
         "Bulwark of the Righteous", "Blessing of Sacrifice", "Hand of Sacrifice",
-    "Power Infusion", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", "Mind Control", -- Priest
+    "Power Infusion", "Ascendance", "Spirit of Redemption", "Inner Focus", "Abolish Disease", "Power Word: Shield", "Mind Control", -- Priest
     "Shield Wall", "Recklessness", "Last Stand", -- Warrior
     "Evasion", "Vanish", -- Rogue
     "Deterrence", "Feign Death", "Mend Pet", -- Hunter
