@@ -55,6 +55,8 @@ libs\gui\component\ColorSelect.lua
 libs\gui\frame\TabFrame.lua
 libs\gui\frame\SimpleDialog.lua
 
+gui\component\uf\Arrow.lua
+
 Puppeteer.lua
 core\SpellsTooltip.lua
 core\EventHandler.lua

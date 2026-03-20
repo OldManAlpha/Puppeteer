@@ -375,6 +375,8 @@ function OnAddonLoaded()
     
     SetLFTAutoRoleEnabled(PTOptions.LFTAutoRole)
 
+    SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow)
+
     if util.IsSuperWowPresent() then
         SetEnemyTrackingEnabled(PuppeteerSettings.IsExperimentEnabled("Enemy"))
     end

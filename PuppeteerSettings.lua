@@ -153,6 +153,7 @@ function SetDefaults()
             ["TestUI"] = false,
             ["Hidden"] = false,
             ["HideWhileSolo"] = false,
+            ["OutOfRangeArrow"] = true,
             ["ChosenProfiles"] = {
                 ["Party"] = PTProfileManager.DEFAULT_PROFILE_NAME,
                 ["Pets"] = PTProfileManager.DEFAULT_PROFILE_NAME,

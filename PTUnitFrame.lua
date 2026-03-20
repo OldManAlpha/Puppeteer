@@ -1714,3 +1714,51 @@ end
 function PTUnitFrame:GetProfile()
     return self.owningGroup:GetProfile()
 end
+
+
+-- Out of Range Arrow
+local deadArrowDistance = 30
+local arrow = PTGuiLib.Get("puppeteer_arrow")
+arrow:SetGradientColors({{1, 0, 0}, {1, 1, 0}, {0, 1, 0}})
+arrow:SetSize(28, 21)
+arrow:Hide()
+local function PTArrowUpdater_OnUpdate()
+    local unit = Puppeteer.Mouseover
+    if not UnitExists(unit) then
+        arrow:Hide()
+        return
+    end
+    local enemy = UnitCanAttack(unit, "player")
+    local unitFrame = Puppeteer.MouseoverFrame
+    local inRange = PTUnit.Get(unit):GetDistance() > 
+        (enemy and -1 or (UnitIsDead(unit) and deadArrowDistance or (unitFrame:GetOutOfRangeThreshold() - 1)))
+    if inRange and util.GetUnitPosition(UnitGUID(unit)) then
+        local overlay = unitFrame.overlayContainer
+        if arrow:GetParent() ~= overlay then
+            arrow:SetParent(overlay)
+            arrow:SetPoint("CENTER", unitFrame.button, "CENTER")
+            arrow:SetFrameLevel(overlay:GetFrameLevel() + 50)
+        end
+
+        local cameraAngle = util.GetCameraFacingAngle(unit)
+
+        if enemy then
+            local facingAngle = util.GetFacingAngle(unit)
+            if not (PTUnit.Get(unit):GetDistance() > unitFrame:GetOutOfRangeThreshold() - 1) and 
+                    (facingAngle < (math.pi * 0.5) or facingAngle > (math.pi * 1.5)) then
+                arrow:Hide()
+                return
+            end
+        end
+        arrow:Show()
+        arrow:SetDirection(cameraAngle)
+    else
+        arrow:Hide()
+    end
+end
+local updater = CreateFrame("Frame", "PTArrowUpdater")
+
+function Puppeteer.SetOutOfRangeArrowEnabled(enabled)
+    updater:SetScript("OnUpdate", (enabled and util.EnabledModFeatures["Friendly Position"]) and PTArrowUpdater_OnUpdate or nil)
+    arrow:Hide()
+end
