@@ -1732,7 +1732,7 @@ local function PTArrowUpdater_OnUpdate()
     local unitFrame = Puppeteer.MouseoverFrame
     local inRange = PTUnit.Get(unit):GetDistance() > 
         (enemy and -1 or (UnitIsDead(unit) and deadArrowDistance or (unitFrame:GetOutOfRangeThreshold() - 1)))
-    if inRange and util.GetUnitPosition(UnitGUID(unit)) then
+    if inRange and util.GetUnitPosition(unitFrame:GetResolvedUnit()) then
         local overlay = unitFrame.overlayContainer
         if arrow:GetParent() ~= overlay then
             arrow:SetParent(overlay)
