@@ -219,7 +219,7 @@ end
 function GetCurrentCast(caster)
     local cast = Casts[caster]
     if cast then
-        return IncomingHeals[cast["targets"][1]][caster]
+        return table.getn(cast["targets"]) > 0 and IncomingHeals[cast["targets"][1]][caster] or nil
     end
 end
 

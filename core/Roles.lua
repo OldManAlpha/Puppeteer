@@ -152,6 +152,23 @@ TalentCountRoleMap = {
     }
 }
 
+local talentMessageHandler
+local noop = function() end
+
+-- We need to stop talent messages from being processed, otherwise the user will see errors
+local function disableTalentMessageProcessing()
+    if not IsAddOnLoaded("Blizzard_TalentUI") then
+        LoadAddOn("Blizzard_InspectUI")
+        LoadAddOn("Blizzard_TalentUI")
+        talentMessageHandler = InspectTalentsFrame_HandleMessage
+    end
+    _G.InspectTalentsFrame_HandleMessage = noop
+end
+
+local function enableTalentMessageProcessing()
+    _G.InspectTalentsFrame_HandleMessage = talentMessageHandler
+end
+
 local PlayerTalentData = {}
 local SCAN_TIMEOUT = 4
 local scanTimeoutAt
@@ -160,9 +177,7 @@ local function TalentScanner_OnUpdate()
     if GetTime() >= scanTimeoutAt then
         talentScanner:SetScript("OnUpdate", nil)
         util.ClearTable(PlayerTalentData)
-        if InspectTalentsComFrame then
-            InspectTalentsComFrame:RegisterEvent("CHAT_MSG_ADDON")
-        end
+        enableTalentMessageProcessing()
     end
 end
 talentScanner:RegisterEvent("CHAT_MSG_ADDON")
@@ -223,25 +238,20 @@ end)
 
 local function requestTalents(name)
     if name == UnitName("player") then
-        if InspectTalentsComFrame then
-            -- Fake a message to ourself to send our own talents to ourself (lol)
-            local event, arg1, arg2, arg4 = _G.event, _G.arg1, _G.arg2, _G.arg4
-            _G.event, _G.arg1, _G.arg2, _G.arg4 = "CHAT_MSG_ADDON", "TW_CHAT_MSG_WHISPER", "INSShowTalents", UnitName("player")
-            InspectTalentsComFrame:GetScript("OnEvent")()
-            _G.event, _G.arg1, _G.arg2, _G.arg4 = event, arg1, arg2, arg4
+        if talentMessageHandler then
+            -- Send our own talents to ourself (lol)
+            talentMessageHandler("INSTalentShow", UnitName("player"))
             return
         end
     end
-    SendAddonMessage("TW_CHAT_MSG_WHISPER<"..name..">", "INSShowTalents", "GUILD")
+    SendAddonMessage("TW_CHAT_MSG_WHISPER<"..name..">", "INSTalentShow", "GUILD")
 end
 
 local function startTalentScan(name, class)
     PlayerTalentData[name] = {class = class, trees = {}}
     talentScanner:SetScript("OnUpdate", TalentScanner_OnUpdate)
     scanTimeoutAt = GetTime() + SCAN_TIMEOUT
-    if InspectTalentsComFrame then -- This frame generates errors if there's unexpected talent inspections
-        InspectTalentsComFrame:UnregisterEvent("CHAT_MSG_ADDON")
-    end
+    disableTalentMessageProcessing()
     requestTalents(name)
 end
 
