@@ -1033,7 +1033,7 @@ function PTUnitFrame:UpdateAuras()
 
     local cache = self:GetCache()
 
-    if cache.HasImportantAura then
+    if cache.HasImportantDebuff then
         if not self.highlightBorder then
             self.highlightBorder = PTGuiLib.Get("puppeteer_highlight_border")
             self.highlightBorder:AttachToUnitFrame(self)
