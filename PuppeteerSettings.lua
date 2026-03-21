@@ -365,7 +365,7 @@ function SetOption(location, value)
 end
 
 -- Buffs/debuffs that significantly modify healing
-DefaultTrackedHealingBuffs = {"Amplify Magic", "Dampen Magic", "Master Demonologist"}
+DefaultTrackedHealingBuffs = {"Amplify Magic", "Dampen Magic", "Master Demonologist", "Apotheosis"}
 DefaultTrackedHealingDebuffs = {"Mortal Strike", "Wound Poison", "Curse of the Deadwood", "Veil of Shadow", "Mortal Wound", 
     "Gehennas' Curse", "Necrotic Poison", "Blood Fury", "Necrotic Aura", "Brood Affliction: Green",
     "Shadowbane Curse", "Leeching Bite" -- Turtle WoW
