@@ -511,6 +511,46 @@ eventFrame:SetScript("OnEvent", function()
     end
 end)
 
+-- UNIT_CASTEVENT does not fire "FAIL" events on plain 1.12 servers, need to fallback on Nampower
+local f = CreateFrame("Frame", "PTTempHealPredictFix")
+f:RegisterEvent("SPELL_FAILED_SELF")
+f:RegisterEvent("SPELL_FAILED_OTHER")
+f:SetScript("OnEvent", function()
+    local caster = event == "SPELL_FAILED_SELF" and getSelfGuid() or arg1
+    local spellID = event == "SPELL_FAILED_SELF" and arg1 or arg2
+
+    local spellName = SpellInfo(spellID)
+
+    if ResurrectionSpells[spellName] then
+        local cast = Casts[caster]
+        if cast then
+            local target = cast["targets"][1]
+            local resses = ResurrectionTargets[target]
+            if resses and resses[caster] then
+                compost:Reclaim(resses[caster])
+                resses[caster] = nil
+                
+                if not next(resses) then
+                    compost:Reclaim(resses)
+                    ResurrectionTargets[target] = nil
+                end
+            end
+        end
+    end
+
+    if spellName ~= autoShotName then -- Don't remove the cast when Auto Shot fails
+        RemoveIncomingCast(caster, false)
+
+        if castIcons[caster] then
+            for _, icon in ipairs(castIcons[caster]) do
+                icon:End(false)
+            end
+            compost:Reclaim(castIcons[caster])
+            castIcons[caster] = nil
+        end
+    end
+end)
+
 local trackedHostileSpells = PTUtil.ToSet({"Shackle Undead", "Mind Control", "Fear", "Polymorph", "Polymorph: Turtle", "Polymorph: Cow"})
 local castIconFrame = CreateFrame("Frame", "PTCastIcons")
 castIconFrame:RegisterEvent("UNIT_CASTEVENT")
