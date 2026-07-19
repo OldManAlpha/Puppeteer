@@ -1136,8 +1136,17 @@ local classColors = {
     ["WARLOCK"] = {0.58, 0.51, 0.79},
     ["WARRIOR"] = {0.78, 0.61, 0.43}
 }
+-- 1.12.1: Shaman uses Paladin's color (pink); the blue Shaman color only exists in TBC+
+local vanillaClassColors = {
+    ["SHAMAN"] = {0.96, 0.55, 0.73},
+}
 function GetClassColor(class, asArray)
-    local color = classColors[class]
+    local color
+    if PTOptions and PTOptions.VanillaClassColors and vanillaClassColors[class] then
+        color = vanillaClassColors[class]
+    else
+        color = classColors[class]
+    end
     if not color then -- Unknown class
         color = {0.7, 0.7, 0.7}
     end
