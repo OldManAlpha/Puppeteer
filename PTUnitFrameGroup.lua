@@ -52,7 +52,8 @@ function PTUnitFrameGroup:New(name, environment, units, petGroup, profile, sortB
 end
 
 function PTUnitFrameGroup:EvaluateShown()
-    if self:CanShowInEnvironment(Puppeteer.CurrentlyInRaid and "raid" or "party") and self:ShowCondition() then
+    local environment = Puppeteer.CurrentlyInRaid and "raid" or "party"
+    if (Puppeteer.TestUI or self:CanShowInEnvironment(environment)) and self:ShowCondition() then
         self:Show()
         self:UpdateUIPositions()
     else
@@ -65,7 +66,8 @@ function PTUnitFrameGroup:ShowCondition()
         return false
     end
 
-    if PTOptions.HideWhileSolo and (GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0) then
+    if not Puppeteer.TestUI and PTOptions.HideWhileSolo
+            and (GetNumPartyMembers() == 0 and GetNumRaidMembers() == 0) then
         return false
     end
 
