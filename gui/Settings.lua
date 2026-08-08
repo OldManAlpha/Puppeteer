@@ -519,8 +519,8 @@ function CreateTab_Options_Other(panel)
     factory:checkbox("Out of Range Arrow", {"See an arrow when hovering over an out of range player"},
         "OutOfRangeArrow", function() Puppeteer.SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow) end)
 
-    factory:checkbox("Vanilla Shaman Color", {"Use the 1.12.1 class color for Shaman (pink, same as Paladin)",
-            "Disable for the blue Shaman color used in later expansions"}, "VanillaClassColors",
+    factory:checkbox("Vanilla Shaman Color", {"Use paladin pink for shamans, as they originally were in vanilla",
+            "This is not recommended to use on cross-faction servers"}, "VanillaClassColors",
             function()
                 for _, ui in ipairs(Puppeteer.AllUnitFrames) do
                     ui:UpdateHealth()

@@ -1136,9 +1136,9 @@ local classColors = {
     ["WARLOCK"] = {0.58, 0.51, 0.79},
     ["WARRIOR"] = {0.78, 0.61, 0.43}
 }
--- 1.12.1: Shaman uses Paladin's color (pink); the blue Shaman color only exists in TBC+
+-- Shamans used the Paladin pink color in vanilla
 local vanillaClassColors = {
-    ["SHAMAN"] = {0.96, 0.55, 0.73},
+    ["SHAMAN"] = {0.96, 0.55, 0.73}
 }
 function GetClassColor(class, asArray)
     local color
