@@ -1136,8 +1136,17 @@ local classColors = {
     ["WARLOCK"] = {0.58, 0.51, 0.79},
     ["WARRIOR"] = {0.78, 0.61, 0.43}
 }
+-- Shamans used the Paladin pink color in vanilla
+local vanillaClassColors = {
+    ["SHAMAN"] = {0.96, 0.55, 0.73}
+}
 function GetClassColor(class, asArray)
-    local color = classColors[class]
+    local color
+    if PTOptions and PTOptions.VanillaClassColors and vanillaClassColors[class] then
+        color = vanillaClassColors[class]
+    else
+        color = classColors[class]
+    end
     if not color then -- Unknown class
         color = {0.7, 0.7, 0.7}
     end

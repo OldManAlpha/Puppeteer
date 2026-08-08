@@ -154,6 +154,7 @@ function SetDefaults()
             ["Hidden"] = false,
             ["HideWhileSolo"] = false,
             ["OutOfRangeArrow"] = true,
+            ["VanillaClassColors"] = false,
             ["ChosenProfiles"] = {
                 ["Party"] = PTProfileManager.DEFAULT_PROFILE_NAME,
                 ["Pets"] = PTProfileManager.DEFAULT_PROFILE_NAME,

@@ -516,8 +516,16 @@ function CreateTab_Options_Other(panel)
     factory:checkbox("Show Heal Predictions", {"See predictions on incoming healing", "Improved predictions if using SuperWoW"},
         "UseHealPredictions", function() Puppeteer.UpdateAllIncomingHealing() end)
 
-    factory:checkbox("Out of Range Arrow", {"See an arrow when hovering over an out of range player"}, 
+    factory:checkbox("Out of Range Arrow", {"See an arrow when hovering over an out of range player"},
         "OutOfRangeArrow", function() Puppeteer.SetOutOfRangeArrowEnabled(PTOptions.OutOfRangeArrow) end)
+
+    factory:checkbox("Vanilla Shaman Color", {"Use paladin pink for shamans, as they originally were in vanilla",
+            "This is not recommended to use on cross-faction servers"}, "VanillaClassColors",
+            function()
+                for _, ui in ipairs(Puppeteer.AllUnitFrames) do
+                    ui:UpdateHealth()
+                end
+            end)
 
     factory:checkbox("(TWoW) LFT Auto Role", {"Automatically assign roles when joining LFT groups", 
             "This functionality was tested for 1.18.0 and may break in future updates"}, "LFTAutoRole",
